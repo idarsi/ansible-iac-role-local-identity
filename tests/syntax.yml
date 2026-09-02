@@ -1,0 +1,14 @@
+---
+- name: Syntax fixture
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Load the repository role for syntax checking
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: validate
+            users:
+              - name: syntax_user

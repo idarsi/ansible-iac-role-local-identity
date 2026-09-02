@@ -1,0 +1,123 @@
+---
+- name: Inspect the declared home before user creation
+  ansible.builtin.stat:
+    path: "{{ local_identity_user_record.home }}"
+    follow: false
+  register: local_identity_home_before_user
+  when: local_identity_user_record.home is defined
+
+- name: Read groups when a primary group ID is requested
+  ansible.builtin.getent:
+    database: group
+  register: local_identity_group_lookup
+  when: local_identity_user_record.gid is defined
+  check_mode: false
+
+- name: Resolve the requested primary group ID
+  ansible.builtin.set_fact:
+    local_identity_primary_group_matches: >-
+      {{ local_identity_group_lookup.ansible_facts.getent_group | default({})
+      | dict2items | selectattr('value.1', 'equalto',
+      (local_identity_user_record.gid | string)) | map(attribute='key') | list }}
+    local_identity_primary_group_name: >-
+      {{ (local_identity_group_lookup.ansible_facts.getent_group | default({})
+      | dict2items | selectattr('value.1', 'equalto',
+      (local_identity_user_record.gid | string)) | map(attribute='key') | list
+      | first) | default(local_identity_user_record.name, true) }}
+  when: local_identity_user_record.gid is defined
+
+- name: Refuse to change an existing same-named group to satisfy a GID request
+  ansible.builtin.assert:
+    that:
+      - >-
+        (local_identity_group_lookup.ansible_facts.getent_group
+        | default({})).get(local_identity_user_record.name) is none or
+        ((local_identity_group_lookup.ansible_facts.getent_group
+        | default({})).get(local_identity_user_record.name)[1] | int) ==
+        (local_identity_user_record.gid | int)
+    fail_msg: >-
+      Cannot use gid {{ local_identity_user_record.gid }} for
+      {{ local_identity_user_record.name }} because its existing primary group
+      has a different GID.
+  when: local_identity_user_record.gid is defined
+
+- name: Ensure a derived primary group exists for an unused GID
+  ansible.builtin.group:
+    name: "{{ local_identity_primary_group_name }}"
+    gid: "{{ local_identity_user_record.gid }}"
+    state: present
+  when:
+    - local_identity_user_record.gid is defined
+    - local_identity_primary_group_matches | length == 0
+
+- name: Ensure local user is present
+  ansible.builtin.user:
+    name: "{{ local_identity_user_record.name }}"
+    state: present
+    uid: "{{ local_identity_user_record.uid | default(omit) }}"
+    group: "{{ local_identity_primary_group_name | default(omit) }}"
+    groups: "{{ local_identity_user_record.groups | join(',') if local_identity_user_record.groups else omit }}"
+    append: >-
+      {{ local_identity_user_record.append | default(true)
+      if local_identity_user_record.groups | length > 0 else omit }}
+    shell: "{{ local_identity_user_record.shell }}"
+    home: "{{ local_identity_user_record.home | default(omit) }}"
+    create_home: "{{ local_identity_user_record.create_home }}"
+    comment: "{{ local_identity_user_record.comment | default(omit) }}"
+    password_lock: "{{ local_identity_user_record.password_lock | default(omit) }}"
+
+- name: Mark a home created by this role
+  ansible.builtin.copy:
+    content: "{{ local_identity_home_marker_text }}\n"
+    dest: "{{ local_identity_user_record.home }}/{{ local_identity_home_removal_marker }}"
+    owner: "{{ local_identity_user_record.name }}"
+    mode: '0600'
+    force: false
+  vars:
+    local_identity_home_marker_text: "Managed by ansible-iac-role-local-identity; do not remove."
+  when:
+    - local_identity_user_record.home is defined
+    - local_identity_user_record.create_home | bool
+    - not (local_identity_home_before_user.stat.exists | default(false) | bool)
+
+- name: Install declared authorized keys
+  ansible.posix.authorized_key:
+    user: "{{ local_identity_user_record.name }}"
+    key: "{{ local_identity_user_record.authorized_keys | join('\n') }}"
+    exclusive: "{{ local_identity_user_record.authorized_keys_exclusive }}"
+    manage_dir: true
+  when:
+    - local_identity_user_record.authorized_keys | length > 0 or local_identity_user_record.authorized_keys_exclusive | bool
+
+- name: Render user sudoers rule file
+  ansible.builtin.file:
+    path: "{{ local_identity_sudoers_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+  when: local_identity_user_record.sudo_rules | length > 0
+
+- name: Refuse to overwrite an unmanaged sudoers file
+  ansible.builtin.include_tasks: sudoers_guard.yml
+  vars:
+    local_identity_sudoers_target: "{{ local_identity_sudoers_dir }}/{{ local_identity_user_record.name }}"
+    local_identity_sudoers_guard_mode: overwrite
+  when: local_identity_user_record.sudo_rules | length > 0
+
+- name: Ensure user sudoers rule file is present and valid
+  ansible.builtin.template:
+    src: sudoers-user.j2
+    dest: "{{ local_identity_sudoers_dir }}/{{ local_identity_user_record.name }}"
+    owner: root
+    group: root
+    mode: "{{ local_identity_sudoers_file_mode }}"
+    validate: 'visudo -cf %s'
+  when: local_identity_user_record.sudo_rules | length > 0
+
+- name: Remove stale user sudoers rule file
+  ansible.builtin.include_tasks: sudoers_guard.yml
+  vars:
+    local_identity_sudoers_target: "{{ local_identity_sudoers_dir }}/{{ local_identity_user_record.name }}"
+    local_identity_sudoers_guard_mode: remove
+  when: local_identity_user_record.sudo_rules | length == 0

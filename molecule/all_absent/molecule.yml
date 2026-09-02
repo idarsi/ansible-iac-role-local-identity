@@ -1,0 +1,20 @@
+---
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+driver:
+  name: podman
+platforms:
+  - name: all-absent-instance
+    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    pre_build_image: true
+    privileged: false
+    capabilities: []
+provisioner:
+  name: ansible
+  playbooks:
+    create: ../create.yml
+    prepare: prepare.yml
+verifier:
+  name: ansible

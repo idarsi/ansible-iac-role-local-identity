@@ -1,0 +1,208 @@
+---
+- name: Validate local identity blueprint
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Validate an empty users list
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: validate
+            users: []
+
+    - name: Validate a user without creating it
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: validate
+            users:
+              - name: validation_absent_fixture
+
+    - name: Accept numeric UID and GID values
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: validate
+            users:
+              - name: valid_numeric_identity
+                uid: 1501
+                gid: 1502
+
+    - name: Initialize invalid UID and GID validation results
+      ansible.builtin.set_fact:
+        local_identity_numeric_results: []
+
+    - name: Reject invalid UID and GID values
+      ansible.builtin.include_tasks: tasks/invalid_numeric_case.yml
+      loop:
+        - {name: invalid_uid_boolean, uid: true}
+        - {name: invalid_gid_boolean, gid: false}
+        - {name: invalid_uid_string, uid: '1501'}
+        - {name: invalid_gid_string, gid: '1502'}
+        - {name: invalid_uid_range, uid: 2147483648}
+        - {name: invalid_gid_range, gid: 2147483648}
+      loop_control:
+        loop_var: local_identity_numeric_case
+        label: "{{ local_identity_numeric_case.name }}"
+
+    - name: Assert invalid UID and GID values were rejected
+      ansible.builtin.assert:
+        that:
+          - local_identity_numeric_result.failed | bool
+          - >-
+            (local_identity_numeric_result.result | default('')) is
+            search('Invalid local_identity user record')
+        fail_msg: >-
+          {{ local_identity_numeric_result.name }} was accepted or did
+          not return the expected actionable validation message.
+      loop: "{{ local_identity_numeric_results }}"
+      loop_control:
+        loop_var: local_identity_numeric_result
+        label: "{{ local_identity_numeric_result.name }}"
+
+    - name: Allow unrestricted sudo only with explicit opt-in
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: validate
+            users:
+              - name: opted_in_sudo_user
+                allow_unrestricted_sudo: true
+                sudo_rules:
+                  - "opted_in_sudo_user ALL=(root) /bin/true, ALL # explicitly opted in"
+
+    - name: Reject an unsafe Linux group name
+      block:
+        - name: Run the invalid group blueprint
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: validate
+                users:
+                  - name: invalid_group_user
+                    groups: ['Invalid Group']
+        - name: Record unexpected group validation success
+          ansible.builtin.set_fact:
+            local_identity_invalid_group_role:
+              failed: false
+      rescue:
+        - name: Record the group validation error
+          ansible.builtin.set_fact:
+            local_identity_invalid_group_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert the expected group schema failure
+      ansible.builtin.assert:
+        that:
+          - local_identity_invalid_group_role.failed | default(false)
+          - >-
+            (local_identity_invalid_group_role.result | default('')) is
+            search('Each groups entry must be a non-empty Linux-safe name')
+        fail_msg: Invalid Linux group input was accepted.
+
+    - name: Reject multiline authorized keys
+      block:
+        - name: Run the invalid blueprint
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: validate
+                users:
+                  - name: invalid_key_user
+                    authorized_keys: ["ssh-ed25519 key\nsecond-line"]
+        - name: Record unexpected successful validation
+          ansible.builtin.set_fact:
+            local_identity_invalid_value_role:
+              failed: false
+              msg: ''
+      rescue:
+        - name: Record the validation error
+          ansible.builtin.set_fact:
+            local_identity_invalid_value_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert the expected schema failure
+      ansible.builtin.assert:
+        that:
+          - local_identity_invalid_value_role.failed | default(false)
+          - >-
+            (local_identity_invalid_value_role.result | default('')) is
+            search('Values in authorized_keys and sudo_rules must be single-line strings.')
+        fail_msg: Invalid authorized_keys input was accepted or failed for the wrong reason.
+
+    - name: Reject unsafe unrestricted sudo syntax
+      block:
+        - name: Run the unsafe blueprint
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: validate
+                users:
+                  - name: invalid_sudo_user
+                    sudo_rules: ["invalid_sudo_user ALL=(root) ALL"]
+        - name: Record unexpected successful validation
+          ansible.builtin.set_fact:
+            local_identity_invalid_sudo_role:
+              failed: false
+              msg: ''
+      rescue:
+        - name: Record the validation error
+          ansible.builtin.set_fact:
+            local_identity_invalid_sudo_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert the expected sudo guardrail failure
+      ansible.builtin.assert:
+        that:
+          - local_identity_invalid_sudo_role.failed | default(false)
+          - >-
+            (local_identity_invalid_sudo_role.result | default('')) is
+            search('Unrestricted sudo command ALL requires allow_unrestricted_sudo: true')
+        fail_msg: Unrestricted sudo input was accepted or failed for the wrong reason.
+
+    - name: Reject unrestricted sudo variants in command lists and comments
+      block:
+        - name: Run the unsafe sudo variants
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: validate
+                users:
+                  - name: invalid_sudo_variants
+                    sudo_rules:
+                      - "invalid_sudo_variants ALL=(root) /bin/true,  ALL   # comment"
+        - name: Record unexpected successful validation
+          ansible.builtin.set_fact:
+            local_identity_invalid_sudo_variants_role:
+              failed: false
+              msg: ''
+      rescue:
+        - name: Record the validation error
+          ansible.builtin.set_fact:
+            local_identity_invalid_sudo_variants_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert the expected sudo variant guardrail failure
+      ansible.builtin.assert:
+        that:
+          - local_identity_invalid_sudo_variants_role.failed | default(false)
+          - >-
+            (local_identity_invalid_sudo_variants_role.result | default('')) is
+            search('Unrestricted sudo command ALL requires allow_unrestricted_sudo: true')
+        fail_msg: Unrestricted sudo variant was accepted or failed for the wrong reason.

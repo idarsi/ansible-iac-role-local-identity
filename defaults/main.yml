@@ -1,0 +1,20 @@
+---
+# Public input is iac_blueprint.local_identity.
+local_identity_state: present
+local_identity_allow_user_deletion: false
+local_identity_allow_home_removal: false
+local_identity_allow_all_absent: false
+local_identity_home_removal_marker: .ansible-iac-role-local-identity-managed
+local_identity_authorized_keys_exclusive: false
+local_identity_sudoers_dir: /etc/sudoers.d
+local_identity_sudoers_file_mode: '0440'
+local_identity_sudoers_marker: '# Managed by ansible role local_identity.'
+
+# Source of truth for the platform check in tasks/main.yml.
+iac_supported_os:
+  - name: Debian
+    versions: ['11', '12']
+  - name: Ubuntu
+    versions: ['22', '24']
+  - name: EL
+    versions: ['8', '9', '10']

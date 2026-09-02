@@ -1,0 +1,27 @@
+---
+- name: Validate authorized keys and sudo rules are single-line strings
+  ansible.builtin.assert:
+    that:
+      - local_identity_value is string
+      - "local_identity_value.find('\\n') == -1"
+    fail_msg: Values in authorized_keys and sudo_rules must be single-line strings.
+  loop: >-
+    {{ (local_identity_values_user.groups | default([])) +
+    (local_identity_values_user.authorized_keys | default([])) +
+    (local_identity_values_user.sudo_rules | default([])) }}
+  loop_control:
+    loop_var: local_identity_value
+
+- name: Validate Linux group names
+  ansible.builtin.assert:
+    that:
+      - local_identity_group_name is string
+      - local_identity_group_name | length > 0
+      - local_identity_group_name is match('^[a-z_][a-z0-9_-]{0,31}$')
+    fail_msg: >-
+      Each groups entry must be a non-empty Linux-safe name of at most 32
+      characters, starting with a lowercase letter or underscore.
+  loop: "{{ local_identity_values_user.groups | default([]) }}"
+  loop_control:
+    loop_var: local_identity_group_name
+    label: "{{ local_identity_values_user.name }}"

@@ -1,0 +1,30 @@
+---
+- name: Validate sudo rules belong to their declared user
+  ansible.builtin.assert:
+    that:
+      - local_identity_sudo_rule is string
+      - local_identity_sudo_rule is match('^' ~ local_identity_sudo_user.name ~ '\\s+')
+      - local_identity_sudo_rule is not search('[\r\n]')
+    fail_msg: Each sudo_rules entry must be a complete sudoers line starting with its user name.
+  loop: "{{ local_identity_sudo_user.sudo_rules | default([]) }}"
+  loop_control:
+    loop_var: local_identity_sudo_rule
+    label: "{{ local_identity_sudo_user.name }}"
+
+- name: Reject unrestricted sudo command specifications without opt-in
+  ansible.builtin.assert:
+    that:
+      - local_identity_sudo_user.allow_unrestricted_sudo | default(false) | bool or
+        (local_identity_sudo_rule_no_comment | regex_replace(
+        '^' ~ local_identity_sudo_user.name ~ '\\s+[^=]+\\s*=\\s*(?:\\([^)]*\\)\\s*)?',
+        '') is not search('(?:^|[,\\s:])ALL(?:\\s|,|$)'))
+    fail_msg: >-
+      Unrestricted sudo command ALL requires allow_unrestricted_sudo: true
+      for user {{ local_identity_sudo_user.name }}.
+  loop: "{{ local_identity_sudo_user.sudo_rules | default([]) }}"
+  loop_control:
+    loop_var: local_identity_sudo_rule
+    label: "{{ local_identity_sudo_user.name }}"
+  vars:
+    local_identity_sudo_rule_no_comment: >-
+      {{ local_identity_sudo_rule | regex_replace('\\s*#.*$', '') | trim }}

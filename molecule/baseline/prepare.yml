@@ -1,0 +1,34 @@
+---
+- name: Prepare deterministic baseline user fixtures
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Ensure the new-user fixture account is absent
+      ansible.builtin.user:
+        name: baseline_user
+        state: absent
+        remove: false
+
+    - name: Ensure the GID-reuse fixture account is absent
+      ansible.builtin.user:
+        name: baseline_reuse_user
+        state: absent
+        remove: false
+
+    - name: Ensure the new-user fixture home is absent
+      ansible.builtin.file:
+        path: /home/baseline_user
+        state: absent
+
+    - name: Ensure the GID-reuse fixture home is absent
+      ansible.builtin.file:
+        path: /home/baseline_reuse_user
+        state: absent
+
+    - name: Create the existing-home fixture
+      ansible.builtin.file:
+        path: /home/baseline_existing_user
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'

@@ -1,0 +1,32 @@
+---
+- name: Set normalized local_identity state before processing users
+  ansible.builtin.set_fact:
+    local_identity_effective_state: "{{ local_identity_input.state | default(local_identity_state) }}"
+    local_identity_sudoers_dir: >-
+      {{ local_identity_input.sudoers_dir | default(local_identity_sudoers_dir) }}
+    local_identity_sudoers_file_mode: >-
+      {{ local_identity_input.sudoers_mode | default(local_identity_sudoers_file_mode) }}
+    local_identity_home_removal_marker: >-
+      {{ local_identity_input.home_removal_marker | default(local_identity_home_removal_marker) }}
+
+- name: Initialize normalized local_identity users
+  ansible.builtin.set_fact:
+    local_identity_normalized_users: []
+
+- name: Normalize local_identity users
+  ansible.builtin.set_fact:
+    local_identity_normalized_users: >-
+      {{ local_identity_normalized_users + [local_identity_user_defaults |
+      combine(local_identity_user, recursive=True)] }}
+  loop: "{{ local_identity_input.users | default([]) }}"
+  loop_control:
+    loop_var: local_identity_user
+  vars:
+    local_identity_user_defaults:
+      groups: []
+      authorized_keys: []
+      sudo_rules: []
+      shell: /bin/bash
+      create_home: true
+      remove_home: false
+      authorized_keys_exclusive: "{{ local_identity_input.authorized_keys_exclusive | default(local_identity_authorized_keys_exclusive) }}"

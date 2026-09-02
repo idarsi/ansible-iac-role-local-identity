@@ -1,0 +1,26 @@
+# OpenCode local configuration and sessions
+.opencode/
+
+# Ansible-generated content
+.ansible/
+*.retry
+
+# Molecule and test artifacts
+.molecule/
+molecule/**/.pytest_cache/
+molecule/**/__pycache__/
+
+# Python, editor, and operating-system artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.cache/
+.coverage
+*.log
+.env
+.env.*
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store

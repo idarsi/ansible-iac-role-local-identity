@@ -1,0 +1,11 @@
+---
+- name: Destroy baseline container with Podman
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Remove only this scenario's containers
+      containers.podman.podman_container:
+        name: "{{ item.name }}"
+        state: absent
+      loop: "{{ molecule_yml.platforms }}"

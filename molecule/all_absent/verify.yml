@@ -1,0 +1,43 @@
+---
+- name: Verify all_absent safety and lifecycle inside the container
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Check fixture account is absent from the current passwd database
+      ansible.builtin.command: getent passwd all_absent_user
+      changed_when: false
+      failed_when: false
+      register: all_absent_user_lookup
+    - name: Check fixture home is absent
+      ansible.builtin.stat:
+        path: /home/all_absent_user
+      register: all_absent_home
+    - name: Check fixture sudoers file is absent
+      ansible.builtin.stat:
+        path: /etc/sudoers.d/all_absent_user
+      register: all_absent_sudoers
+    - name: Check unmanaged sudoers sentinel remains present
+      ansible.builtin.stat:
+        path: /etc/sudoers.d/all_absent_unmanaged
+      register: all_absent_unmanaged_sudoers
+    - name: Read unmanaged sudoers sentinel header
+      ansible.builtin.command:
+        cmd: >-
+          awk 'NR == 1 { print; exit }'
+          /etc/sudoers.d/all_absent_unmanaged
+      changed_when: false
+      register: all_absent_unmanaged_sudoers_header
+    - name: Check an undeclared home remains present
+      ansible.builtin.stat:
+        path: /home/all_absent_wrong_home
+      register: all_absent_wrong_home
+    - name: Assert only the declared identity was removed
+      ansible.builtin.assert:
+        that:
+          - all_absent_user_lookup.rc != 0
+          - all_absent_user_lookup.rc != 127
+          - not (all_absent_home.stat.exists | default(false) | bool)
+          - not (all_absent_sudoers.stat.exists | default(false) | bool)
+          - all_absent_unmanaged_sudoers.stat.isreg
+          - all_absent_unmanaged_sudoers_header.stdout == '# This is not a role-managed sudoers file.'
+          - all_absent_wrong_home.stat.isdir

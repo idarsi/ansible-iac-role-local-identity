@@ -1,0 +1,68 @@
+---
+name: Ansible role checks
+
+"on":
+  push:
+  pull_request:
+
+jobs:
+  lint-and-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Ansible tooling
+        run: >-
+          python -m pip install ansible-core==2.21.3 ansible-lint==26.8.0
+      - name: Install role collections
+        run: ansible-galaxy collection install -r requirements.yml
+      - name: Run syntax check
+        run: ansible-playbook --syntax-check tests/syntax.yml
+      - name: Run production-profile Ansible Lint
+        run: ansible-lint --profile production .
+
+  molecule:
+    name: Molecule ${{ matrix.scenario }} (${{ matrix.platform.name }})
+    needs: lint-and-syntax
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: RHEL UBI 9
+            image: registry.access.redhat.com/ubi9/ubi-init:latest
+          - name: RHEL UBI 10
+            image: registry.access.redhat.com/ubi10/ubi-init:latest
+          - name: Rocky Linux 9
+            image: rockylinux:9
+          - name: Rocky Linux 10
+            image: rockylinux:10
+          - name: Ubuntu 22.04
+            image: geerlingguy/docker-ubuntu2204-ansible:latest
+        scenario: [validation, baseline, lifecycle, guardrails, all_absent]
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Set up Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes podman
+          podman info
+      - name: Install Ansible tooling
+        run: >-
+          python -m pip install ansible-core==2.21.3 molecule==26.8.0
+          molecule-plugins[podman]==26.7.15
+      - name: Install role collections
+        run: ansible-galaxy collection install -r requirements.yml
+      - name: Run Molecule scenario
+        env:
+          MOLECULE_IMAGE: ${{ matrix.platform.image }}
+        run: molecule test -s ${{ matrix.scenario }}

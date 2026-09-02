@@ -1,0 +1,179 @@
+---
+- name: Validate local_identity root
+  ansible.builtin.assert:
+    that:
+      - iac_blueprint is defined
+      - iac_blueprint is mapping
+      - iac_blueprint.local_identity is defined
+      - iac_blueprint.local_identity is mapping
+    fail_msg: Define iac_blueprint.local_identity as a mapping.
+
+- name: Read public local_identity values
+  ansible.builtin.set_fact:
+    local_identity_input: "{{ iac_blueprint.local_identity }}"
+
+- name: Validate state and users container
+  ansible.builtin.assert:
+    that:
+      - (local_identity_input.state | default(local_identity_state)) in ['validate', 'present', 'absent', 'all_absent']
+      - local_identity_input.users is defined
+      - local_identity_input.users is sequence
+      - local_identity_input.users is not string
+      - local_identity_input.allow_user_deletion is not defined or local_identity_input.allow_user_deletion is boolean
+      - local_identity_input.allow_home_removal is not defined or local_identity_input.allow_home_removal is boolean
+      - local_identity_input.allow_all_absent is not defined or local_identity_input.allow_all_absent is boolean
+      - local_identity_input.home_removal_marker is not defined or (local_identity_input.home_removal_marker is string)
+      - local_identity_input.home_removal_marker is not defined or (local_identity_input.home_removal_marker is match('^[^/\n]+$'))
+      - local_identity_input.home_removal_marker is not defined or (local_identity_input.home_removal_marker not in ['.', '..'])
+      - local_identity_input.authorized_keys_exclusive is not defined or local_identity_input.authorized_keys_exclusive is boolean
+      - local_identity_input.sudoers_dir is not defined or local_identity_input.sudoers_dir is string
+      - local_identity_input.sudoers_mode is not defined or local_identity_input.sudoers_mode is string
+    fail_msg: local_identity.state must be validate/present/absent/all_absent and users must be a list.
+
+- name: Validate user records
+  ansible.builtin.assert:
+    that:
+      - local_identity_user is mapping
+      - local_identity_user.name is defined
+      - local_identity_user.name is string
+      - local_identity_user.name is match('^[a-z_][a-z0-9_-]{0,31}$')
+      - local_identity_user.name != 'root'
+      - (local_identity_input.users | selectattr('name', 'defined') | selectattr('name', 'equalto', local_identity_user.name) | list | length) == 1
+      - (local_identity_user.groups | default([])) is sequence
+      - (local_identity_user.groups | default([])) is not string
+      - (local_identity_user.authorized_keys | default([])) is sequence
+      - (local_identity_user.authorized_keys | default([])) is not string
+      - (local_identity_user.sudo_rules | default([])) is sequence
+      - (local_identity_user.sudo_rules | default([])) is not string
+      - >-
+        {{ (local_identity_user.uid is not defined or
+        local_identity_user.uid is integer) | bool }}
+      - >-
+        {{ (local_identity_user.uid is not defined or
+        local_identity_user.uid is not boolean) | bool }}
+      - >-
+        {{ (local_identity_user.uid is not defined or
+        (local_identity_user.uid is integer and
+        local_identity_user.uid is not boolean and
+        local_identity_user.uid > 0 and
+        local_identity_user.uid <= 2147483647)) | bool }}
+      - >-
+        {{ (local_identity_user.gid is not defined or
+        local_identity_user.gid is integer) | bool }}
+      - >-
+        {{ (local_identity_user.gid is not defined or
+        local_identity_user.gid is not boolean) | bool }}
+      - >-
+        {{ (local_identity_user.gid is not defined or
+        (local_identity_user.gid is integer and
+        local_identity_user.gid is not boolean and
+        local_identity_user.gid > 0 and
+        local_identity_user.gid <= 2147483647)) | bool }}
+      - local_identity_user.home is not defined or local_identity_user.home is string
+      - local_identity_user.home is not defined or local_identity_user.home is match('^/[^\n]*$')
+      - local_identity_user.home is not defined or local_identity_user.home is not match('.*/$')
+      - local_identity_user.home is not defined or '/..' not in local_identity_user.home
+      - local_identity_user.home is not defined or '/./' not in local_identity_user.home
+      - local_identity_user.home is not defined or '//' not in local_identity_user.home
+      - local_identity_user.shell is not defined or (local_identity_user.shell is string and local_identity_user.shell | length > 0)
+      - local_identity_user.comment is not defined or local_identity_user.comment is string
+      - local_identity_user.remove_home is not defined or local_identity_user.remove_home is boolean
+      - local_identity_user.authorized_keys_exclusive is not defined or local_identity_user.authorized_keys_exclusive is boolean
+      - local_identity_user.create_home is not defined or local_identity_user.create_home is boolean
+      - local_identity_user.append is not defined or local_identity_user.append is boolean
+      - local_identity_user.password_lock is not defined or local_identity_user.password_lock is boolean
+      - local_identity_user.allow_unrestricted_sudo is not defined or local_identity_user.allow_unrestricted_sudo is boolean
+      - (local_identity_user.remove_home | default(false) | bool) == false or local_identity_user.home is defined
+      - >-
+       local_identity_user.home is not defined or local_identity_user.home not
+       in ['/', '/home', '/root', '/etc', '/usr', '/var', '/bin', '/sbin',
+       '/boot', '/tmp', '/opt', '/srv']
+      - >-
+       local_identity_user.uid is not defined or (local_identity_input.users |
+       selectattr('uid', 'defined') | selectattr('uid', 'equalto',
+       local_identity_user.uid) | list | length) == 1
+      - >-
+       local_identity_user.home is not defined or (local_identity_input.users |
+       selectattr('home', 'defined') | selectattr('home', 'equalto',
+       local_identity_user.home) | list | length) == 1
+    fail_msg: Invalid local_identity user record (names, types, and duplicate names are checked).
+  loop: "{{ local_identity_input.users }}"
+  loop_control:
+    loop_var: local_identity_user
+    label: "{{ local_identity_user.name | default('unnamed') }}"
+
+- name: Validate values belonging to each user
+  ansible.builtin.include_tasks: validate_values.yml
+  loop: "{{ local_identity_input.users }}"
+  loop_control:
+    loop_var: local_identity_values_user
+    label: "{{ local_identity_values_user.name }}"
+
+- name: Validate sudo rule ownership per user
+  ansible.builtin.include_tasks: validate_sudo_rules.yml
+  loop: "{{ local_identity_input.users }}"
+  loop_control:
+    loop_var: local_identity_sudo_user
+    label: "{{ local_identity_sudo_user.name }}"
+
+- name: Validate deletion guardrails
+  ansible.builtin.assert:
+    that:
+      - >-
+        (local_identity_input.state | default(local_identity_state)) !=
+        'all_absent' or (local_identity_input.allow_all_absent |
+        default(local_identity_allow_all_absent) | bool)
+      - >-
+        (local_identity_input.state | default(local_identity_state)) in
+        ['present', 'validate'] or (local_identity_input.allow_user_deletion |
+        default(local_identity_allow_user_deletion) | bool)
+      - >-
+        local_identity_input.users | selectattr('remove_home', 'defined') |
+        selectattr('remove_home', 'equalto', true) | list | length == 0 or
+        (local_identity_input.allow_home_removal |
+        default(local_identity_allow_home_removal) | bool)
+    fail_msg: Deletion requires allow_user_deletion; all_absent additionally requires allow_all_absent; home removal requires allow_home_removal.
+
+- name: Validate home removal paths
+  ansible.builtin.assert:
+    that:
+      - local_identity_user.home | default('/nonexistent') != '/'
+      - local_identity_user.home | default('/nonexistent') is not match('^/(etc|usr|var|bin|sbin|boot)(/|$)')
+    fail_msg: Refusing an unsafe home removal path.
+  loop: "{{ local_identity_input.users }}"
+  loop_control:
+    loop_var: local_identity_user
+  when: local_identity_user.remove_home | default(false) | bool
+
+- name: Validate sudoers directory and file mode
+  ansible.builtin.assert:
+    that:
+      - (local_identity_input.sudoers_dir | default(local_identity_sudoers_dir)) is string
+      - (local_identity_input.sudoers_dir | default(local_identity_sudoers_dir)) is match('^/[^\n]*$')
+      - (local_identity_input.sudoers_dir | default(local_identity_sudoers_dir)) not in ['/', '/etc', '/etc/sudoers']
+      - "(local_identity_input.sudoers_dir | default(local_identity_sudoers_dir)).find('..') == -1"
+      - not (local_identity_input.sudoers_dir | default(local_identity_sudoers_dir)).endswith('/')
+      - "(local_identity_input.sudoers_dir | default(local_identity_sudoers_dir)).find('//') == -1"
+      - (local_identity_input.sudoers_mode | default(local_identity_sudoers_file_mode)) is match('^(0400|0440)$')
+    fail_msg: sudoers_dir must be a safe absolute directory and sudoers_mode must be exactly 0400 or 0440.
+
+- name: Validate the sudoers management marker
+  ansible.builtin.assert:
+    that:
+      - local_identity_sudoers_marker is string
+      - >-
+        local_identity_sudoers_marker is not string or
+        (local_identity_sudoers_marker | length > 0 and
+        local_identity_sudoers_marker is match('^#') and
+        local_identity_sudoers_marker is not search('[\x00-\x1f\x7f]'))
+    fail_msg: >-
+      local_identity_sudoers_marker must be a non-empty, single-line comment
+      beginning with # and containing no control characters.
+
+- name: Validate the home removal marker
+  ansible.builtin.assert:
+    that:
+      - (local_identity_input.home_removal_marker | default(local_identity_home_removal_marker, true)) is string
+      - (local_identity_input.home_removal_marker | default(local_identity_home_removal_marker, true)) is match('^[^/\n]+$')
+      - (local_identity_input.home_removal_marker | default(local_identity_home_removal_marker, true)) not in ['.', '..']
+    fail_msg: home_removal_marker must be a single safe filename (not a path).

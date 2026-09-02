@@ -1,0 +1,62 @@
+---
+- name: Verify lifecycle user
+  hosts: all
+  tasks:
+    - name: Look up the lifecycle fixture user
+      ansible.builtin.getent:
+        database: passwd
+        key: lifecycle_user
+    - name: Assert the lifecycle fixture user exists
+      ansible.builtin.assert:
+        that: "'lifecycle_user' in getent_passwd"
+
+    - name: Check the role-managed home marker was created
+      ansible.builtin.stat:
+        path: /home/lifecycle_user/.ansible-iac-role-local-identity-managed
+      register: lifecycle_home_marker
+
+    - name: Read the lifecycle home marker
+      ansible.builtin.slurp:
+        src: /home/lifecycle_user/.ansible-iac-role-local-identity-managed
+      register: lifecycle_home_marker_content
+
+    - name: Assert the new user's home is marked as role-managed
+      ansible.builtin.assert:
+        that:
+          - lifecycle_home_marker.stat.isreg
+          - lifecycle_home_marker.stat.uid == (getent_passwd.lifecycle_user[1] | int)
+          - (lifecycle_home_marker_content.content | b64decode) == 'Managed by ansible-iac-role-local-identity; do not remove.\n'
+
+    - name: Remove the lifecycle fixture user and its marked home
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: absent
+            allow_user_deletion: true
+            allow_home_removal: true
+            users:
+              - name: lifecycle_user
+                home: /home/lifecycle_user
+                create_home: true
+                remove_home: true
+
+    - name: Verify the lifecycle user's home was removed
+      ansible.builtin.stat:
+        path: /home/lifecycle_user
+      register: lifecycle_home_after_removal
+
+    - name: Check the lifecycle fixture user is absent from the current passwd database
+      ansible.builtin.command: getent passwd lifecycle_user
+      changed_when: false
+      failed_when: false
+      register: lifecycle_user_after_removal
+
+    - name: Assert the lifecycle user and marked home were removed
+      ansible.builtin.assert:
+        that:
+          - >-
+            lifecycle_user_after_removal.rc != 0
+          - lifecycle_user_after_removal.rc != 127
+          - not lifecycle_home_after_removal.stat.exists

@@ -1,0 +1,15 @@
+---
+- name: Prepare deterministic lifecycle fixtures
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Ensure the lifecycle fixture account is absent
+      ansible.builtin.user:
+        name: lifecycle_user
+        state: absent
+        remove: false
+
+    - name: Ensure the lifecycle fixture home is absent
+      ansible.builtin.file:
+        path: /home/lifecycle_user
+        state: absent

@@ -1,0 +1,7 @@
+---
+iac_blueprint:
+  local_identity:
+    state: present
+    users:
+      - name: app
+        shell: /usr/sbin/nologin

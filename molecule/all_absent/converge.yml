@@ -1,0 +1,19 @@
+---
+- name: Remove only the declared fixture identities
+  hosts: all
+  vars:
+    iac_blueprint:
+      local_identity:
+        state: all_absent
+        allow_all_absent: true
+        allow_user_deletion: true
+        allow_home_removal: true
+        users:
+          - name: all_absent_user
+            home: /home/all_absent_user
+            create_home: true
+            remove_home: true
+  tasks:
+    - name: Apply the repository role to the Molecule container
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."

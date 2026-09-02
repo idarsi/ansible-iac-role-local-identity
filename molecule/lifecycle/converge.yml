@@ -1,0 +1,7 @@
+---
+- name: Converge lifecycle local identity
+  hosts: all
+  tasks:
+    - name: Apply the repository role to the Molecule container
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."

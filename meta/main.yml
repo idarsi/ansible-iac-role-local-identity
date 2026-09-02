@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  role_name: local_identity
+  author: idarsi
+  description: Declarative management of local Linux users and their access
+  license: MIT
+  min_ansible_version: '2.14'
+  platforms:
+    - name: Debian
+      versions: [bookworm, bullseye]
+    - name: Ubuntu
+      versions: [jammy, noble]
+    - name: EL
+      versions: ['8', '9', '10']
+dependencies: []

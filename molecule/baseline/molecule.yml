@@ -1,0 +1,37 @@
+---
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+driver:
+  name: podman
+platforms:
+  - name: baseline-instance
+    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    pre_build_image: true
+provisioner:
+  name: ansible
+  playbooks:
+    create: ../create.yml
+  inventory:
+    host_vars:
+      baseline-instance:
+        iac_blueprint:
+          local_identity:
+            state: present
+            users:
+              - name: baseline_user
+                home: /home/baseline_user
+                shell: /bin/bash
+                gid: 1600
+                sudo_rules:
+                  - 'baseline_user ALL=(root) /usr/bin/true'
+              - name: baseline_existing_user
+                home: /home/baseline_existing_user
+                shell: /bin/bash
+              - name: baseline_reuse_user
+                home: /home/baseline_reuse_user
+                shell: /bin/bash
+                gid: 1600
+verifier:
+  name: ansible

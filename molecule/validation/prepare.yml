@@ -1,0 +1,31 @@
+---
+- name: Snapshot a guaranteed absent validation fixture
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Check the validation fixture account is absent
+      ansible.builtin.command: getent passwd validation_absent_fixture
+      changed_when: false
+      failed_when: false
+      register: local_identity_validation_fixture_user
+
+    - name: Check the validation fixture sudoers file is absent
+      ansible.builtin.stat:
+        path: /etc/sudoers.d/validation_absent_fixture
+      register: local_identity_validation_fixture_sudoers
+
+    - name: Require the validation fixture to be absent before converge
+      ansible.builtin.assert:
+        that:
+          - local_identity_validation_fixture_user.rc != 0
+          - local_identity_validation_fixture_user.rc != 127
+          - not (local_identity_validation_fixture_sudoers.stat.exists | default(false) | bool)
+        fail_msg: Validation fixture unexpectedly exists before validate state.
+
+    - name: Save the before-validation snapshot
+      ansible.builtin.copy:
+        dest: /tmp/local_identity_validation_before.snapshot
+        content: |
+          user_exists={{ (local_identity_validation_fixture_user.rc == 0) | ternary('true', 'false') }}
+          sudoers_exists={{ (local_identity_validation_fixture_sudoers.stat.exists | default(false) | bool) | ternary('true', 'false') }}
+        mode: '0600'

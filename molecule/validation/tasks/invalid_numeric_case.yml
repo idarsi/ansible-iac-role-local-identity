@@ -1,0 +1,25 @@
+---
+- name: Run invalid numeric identity validation
+  block:
+    - name: Run the invalid numeric identity blueprint
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: validate
+            users:
+              - "{{ local_identity_numeric_case }}"
+    - name: Record unexpected numeric identity validation success
+      ansible.builtin.set_fact:
+        local_identity_numeric_results: >-
+          {{ local_identity_numeric_results +
+          [{'name': local_identity_numeric_case.name, 'failed': false,
+          'result': ''}] }}
+  rescue:
+    - name: Record the numeric identity validation error
+      ansible.builtin.set_fact:
+        local_identity_numeric_results: >-
+          {{ local_identity_numeric_results +
+          [{'name': local_identity_numeric_case.name, 'failed': true,
+          'result': ansible_failed_result | to_nice_json}] }}

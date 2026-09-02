@@ -1,0 +1,29 @@
+---
+- name: Create Molecule container with Podman
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Start the Molecule container without host mounts or privilege
+      containers.podman.podman_container:
+        name: "{{ item.name }}"
+        image: "{{ lookup('env', 'MOLECULE_IMAGE') | default(item.image, true) }}"
+        state: started
+        privileged: false
+        capabilities: []
+        command: [sleep, infinity]
+      loop: "{{ molecule_yml.platforms }}"
+    - name: Install platform prerequisites
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/platform_prerequisites.yml"
+    - name: Build Podman connection details
+      ansible.builtin.set_fact:
+        local_identity_instance_conf: >-
+          {{ local_identity_instance_conf | default({}) |
+             combine({item.name: {'address': item.name,
+             'connection': 'containers.podman.podman'}}) }}
+      loop: "{{ molecule_yml.platforms }}"
+    - name: Publish Podman connection details
+      ansible.builtin.copy:
+        dest: "{{ molecule_instance_config }}"
+        mode: '0600'
+        content: "{{ {'instance': local_identity_instance_conf} | to_json }}"

@@ -1,0 +1,14 @@
+---
+iac_blueprint:
+  local_identity:
+    state: present
+    users:
+      - name: deploy
+        password_lock: true
+        allow_unrestricted_sudo: false
+        authorized_keys_exclusive: false
+        authorized_keys:
+          - ssh-ed25519 AAAA... replace-with-a-real-public-key
+        # The command field ALL is rejected unless this is explicitly true.
+        sudo_rules:
+          - 'deploy ALL=(root) /usr/bin/systemctl restart example.service'

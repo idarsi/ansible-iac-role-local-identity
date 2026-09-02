@@ -1,0 +1,40 @@
+---
+- name: Verify guardrail scenario remains container-local
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Confirm the guardrail fixture user remains present
+      ansible.builtin.getent:
+        database: passwd
+        key: guardrail_user
+        fail_key: false
+      register: guardrail_user_lookup
+    - name: Assert that the deletion guardrail preserved the fixture
+      ansible.builtin.assert:
+        that:
+          - >-
+            'guardrail_user' in
+            (guardrail_user_lookup.ansible_facts.getent_passwd | default({}))
+
+    - name: Check unmanaged deletion sentinels
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /home/unmanaged_home_user
+        - /etc/sudoers.d/unmanaged_home_user
+      register: guardrail_unmanaged_sentinels
+
+    - name: Check exact-header ownership sentinel
+      ansible.builtin.stat:
+        path: /etc/sudoers.d/exact_header_unmanaged
+        follow: false
+      register: guardrail_exact_header_sentinel
+
+    - name: Assert unmanaged home and sudoers were preserved
+      ansible.builtin.assert:
+        that:
+          - guardrail_unmanaged_sentinels.results[0].stat.isdir
+          - guardrail_unmanaged_sentinels.results[1].stat.isreg
+          - guardrail_exact_header_sentinel.stat.isreg
+          - guardrail_exact_header_sentinel.stat.uid != 0
+          - guardrail_exact_header_sentinel.stat.gid != 0

@@ -1,0 +1,101 @@
+---
+- name: Verify baseline user
+  hosts: all
+  tasks:
+    - name: Read the baseline user before sudoers check mode
+      ansible.builtin.getent:
+        database: passwd
+        key: baseline_user
+      register: baseline_user_before
+    - name: Read the managed sudoers file before check mode
+      ansible.builtin.slurp:
+        src: /etc/sudoers.d/baseline_user
+      register: baseline_sudoers_before
+
+    - name: Exercise valid sudoers present state in check mode
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+        apply:
+          check_mode: true
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: present
+            users:
+              - name: baseline_user
+                home: /home/baseline_user
+                shell: /bin/bash
+                gid: 1600
+                sudo_rules:
+                  - 'baseline_user ALL=(root) /usr/bin/true'
+
+    - name: Read the baseline user after sudoers check mode
+      ansible.builtin.getent:
+        database: passwd
+        key: baseline_user
+      register: baseline_user_after
+    - name: Read the managed sudoers file after check mode
+      ansible.builtin.slurp:
+        src: /etc/sudoers.d/baseline_user
+      register: baseline_sudoers_after
+    - name: Assert sudoers check mode made no user or file changes
+      ansible.builtin.assert:
+        that:
+          - baseline_user_before.ansible_facts.getent_passwd.baseline_user == baseline_user_after.ansible_facts.getent_passwd.baseline_user
+          - baseline_sudoers_before.content == baseline_sudoers_after.content
+
+    - name: Look up the baseline fixture user
+      ansible.builtin.getent:
+        database: passwd
+        key: baseline_user
+    - name: Assert the baseline fixture user exists
+      ansible.builtin.assert:
+        that: "'baseline_user' in getent_passwd"
+
+    - name: Read the baseline primary group
+      ansible.builtin.getent:
+        database: group
+        key: baseline_user
+    - name: Assert the numeric GID contract is honored
+      ansible.builtin.assert:
+        that: getent_group.baseline_user[1] == '1600'
+
+    - name: Look up the GID-reusing fixture user
+      ansible.builtin.getent:
+        database: passwd
+        key: baseline_reuse_user
+    - name: Assert a second user can reuse the resolved primary group
+      ansible.builtin.assert:
+        that: getent_passwd.baseline_reuse_user[2] == '1600'
+
+    - name: Check the baseline home marker
+      ansible.builtin.stat:
+        path: /home/baseline_user/.ansible-iac-role-local-identity-managed
+      register: baseline_home_marker
+
+    - name: Read the baseline home marker
+      ansible.builtin.slurp:
+        src: /home/baseline_user/.ansible-iac-role-local-identity-managed
+      register: baseline_home_marker_content
+
+    - name: Assert a newly created home is marked
+      ansible.builtin.assert:
+        that:
+          - baseline_home_marker.stat.isreg
+          - >-
+             baseline_home_marker.stat.uid ==
+             (baseline_user_before.ansible_facts.getent_passwd
+             .baseline_user[1] | int)
+          - >-
+            (baseline_home_marker_content.content | b64decode) ==
+            'Managed by ansible-iac-role-local-identity; do not remove.\n'
+
+    - name: Check the existing home marker
+      ansible.builtin.stat:
+        path: >-
+          /home/baseline_existing_user/.ansible-iac-role-local-identity-managed
+      register: baseline_existing_home_marker
+
+    - name: Assert an existing home is not marked automatically
+      ansible.builtin.assert:
+        that: not baseline_existing_home_marker.stat.exists

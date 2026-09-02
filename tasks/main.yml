@@ -1,0 +1,50 @@
+---
+- name: Require a Linux target host
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['system'] == 'Linux'
+    fail_msg: local_identity supports Linux hosts only.
+
+- name: Normalize Enterprise Linux distribution names
+  ansible.builtin.set_fact:
+    local_identity_distribution: >-
+      {{ 'EL' if ansible_facts['distribution'] in ['RedHat', 'Rocky'] else
+      ansible_facts['distribution'] }}
+
+- name: Check whether the operating system is supported
+  ansible.builtin.fail:
+    msg: >-
+      Unsupported operating system: {{ ansible_facts['distribution'] }}
+      {{ ansible_facts['distribution_major_version'] }}. Supported platforms
+      are defined by iac_supported_os.
+  when: >
+    iac_supported_os | selectattr('name', 'equalto', local_identity_distribution)
+    | selectattr('versions', 'contains',
+    ansible_facts['distribution_major_version'])
+    | list | length == 0
+
+- name: Validate the complete local_identity inventory
+  ansible.builtin.include_tasks: validate/validate_inventory.yml
+
+- name: Normalize the local_identity inventory
+  ansible.builtin.include_tasks: normalize.yml
+
+- name: Preflight sudoers content before present-state mutations
+  ansible.builtin.include_tasks: validate_sudoers_preflight.yml
+  when: local_identity_effective_state == 'present'
+
+- name: Run validation state
+  ansible.builtin.include_tasks: validate_only.yml
+  when: local_identity_effective_state == 'validate'
+
+- name: Run present state
+  ansible.builtin.include_tasks: present.yml
+  when: local_identity_effective_state == 'present'
+
+- name: Run absent state
+  ansible.builtin.include_tasks: absent.yml
+  when: local_identity_effective_state == 'absent'
+
+- name: Run all absent state
+  ansible.builtin.include_tasks: all_absent.yml
+  when: local_identity_effective_state == 'all_absent'

@@ -1,0 +1,65 @@
+---
+- name: Verify validation made no account or file changes
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Read the before-validation snapshot
+      ansible.builtin.slurp:
+        src: /tmp/local_identity_validation_before.snapshot
+      register: local_identity_validation_before_snapshot
+
+    - name: Read the validation fixture account before validation
+      ansible.builtin.getent:
+        database: passwd
+        key: validation_absent_fixture
+        fail_key: false
+      register: local_identity_validation_user_before
+    - name: Read the validation fixture sudoers file before validation
+      ansible.builtin.stat:
+        path: /etc/sudoers.d/validation_absent_fixture
+      register: local_identity_validation_sudoers_before
+    - name: Run a read-only validation during verify
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: validate
+            users:
+              - name: validation_absent_fixture
+    - name: Read the validation fixture account after validation
+      ansible.builtin.getent:
+        database: passwd
+        key: validation_absent_fixture
+        fail_key: false
+      register: local_identity_validation_user_after
+    - name: Read the validation fixture sudoers file after validation
+      ansible.builtin.stat:
+        path: /etc/sudoers.d/validation_absent_fixture
+      register: local_identity_validation_sudoers_after
+    - name: Set read-only validation snapshots
+      ansible.builtin.set_fact:
+        local_identity_validation_before:
+          user: >-
+            {{ (local_identity_validation_user_before.ansible_facts.getent_passwd
+                | default({}, true)).get('validation_absent_fixture') }}
+          sudoers: "{{ local_identity_validation_sudoers_before.stat.exists }}"
+        local_identity_validation_after:
+          user: >-
+            {{ (local_identity_validation_user_after.ansible_facts.getent_passwd
+                | default({}, true)).get('validation_absent_fixture') }}
+          sudoers: "{{ local_identity_validation_sudoers_after.stat.exists }}"
+    - name: Set the expected validation snapshot from the observed before-state
+      ansible.builtin.set_fact:
+        local_identity_validation_expected_snapshot: |
+          user_exists={{ (local_identity_validation_before.user is not none) | ternary('true', 'false') }}
+          sudoers_exists={{ local_identity_validation_before.sudoers | ternary('true', 'false') }}
+    - name: Assert validation did not mutate the container
+      ansible.builtin.assert:
+        that:
+          - (local_identity_validation_before_snapshot.content | b64decode) == local_identity_validation_expected_snapshot
+          - local_identity_validation_before.user is none
+          - local_identity_validation_before.sudoers == false
+          - local_identity_validation_after.user is none
+          - local_identity_validation_after.sudoers == false
+          - local_identity_validation_before == local_identity_validation_after

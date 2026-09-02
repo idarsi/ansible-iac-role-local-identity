@@ -1,0 +1,10 @@
+---
+iac_blueprint:
+  local_identity:
+    state: absent
+    allow_user_deletion: true
+    allow_home_removal: true
+    users:
+      - name: app
+        home: /home/app
+        remove_home: true

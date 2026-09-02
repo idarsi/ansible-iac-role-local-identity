@@ -1,0 +1,27 @@
+---
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+driver:
+  name: podman
+platforms:
+  - name: lifecycle-instance
+    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    pre_build_image: true
+provisioner:
+  name: ansible
+  playbooks:
+    create: ../create.yml
+  inventory:
+    host_vars:
+      lifecycle-instance:
+        iac_blueprint:
+          local_identity:
+            state: present
+            users:
+              - name: lifecycle_user
+                home: /home/lifecycle_user
+                shell: /bin/bash
+verifier:
+  name: ansible

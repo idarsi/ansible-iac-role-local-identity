@@ -1,0 +1,7 @@
+---
+- name: Converge declared local users
+  ansible.builtin.include_tasks: user_present.yml
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_user_record
+    label: "{{ local_identity_user_record.name }}"

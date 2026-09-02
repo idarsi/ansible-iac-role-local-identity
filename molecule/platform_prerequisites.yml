@@ -1,0 +1,22 @@
+---
+- name: Install test-only Ansible prerequisites in platform containers
+  ansible.builtin.command:
+    argv:
+      - podman
+      - exec
+      - "{{ item.name }}"
+      - sh
+      - -c
+      - >-
+        if command -v apt-get >/dev/null 2>&1; then
+        apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
+        python3 sudo;
+        elif command -v dnf >/dev/null 2>&1; then
+        dnf install -y python3 sudo;
+        elif command -v microdnf >/dev/null 2>&1; then
+        microdnf install -y python3 sudo;
+        else exit 1; fi
+  changed_when: false
+  loop: "{{ molecule_yml.platforms }}"
+  loop_control:
+    label: "{{ item.name }}"

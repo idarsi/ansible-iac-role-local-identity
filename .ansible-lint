@@ -1,0 +1,5 @@
+---
+# Molecule loads this checkout by path. Keep the fixtures linted for all other
+# rules while ignoring only the path-specific role-name diagnostic.
+skip_list:
+  - role-name[path]

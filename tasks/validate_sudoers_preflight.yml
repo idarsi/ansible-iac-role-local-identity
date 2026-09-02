@@ -1,0 +1,25 @@
+---
+- name: Check the sudoers validation dependency without changing the host
+  ansible.builtin.command: visudo -V
+  register: local_identity_visudo_dependency
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: local_identity_normalized_users | selectattr('sudo_rules', 'ne', []) | list | length > 0
+
+- name: Require visudo before converging users with sudo rules
+  ansible.builtin.assert:
+    that:
+      - local_identity_visudo_dependency.rc == 0
+    fail_msg: >-
+      Sudoers validation requires visudo before user changes; install sudo (or
+      provide an image containing visudo) and retry.
+  when: local_identity_normalized_users | selectattr('sudo_rules', 'ne', []) | list | length > 0
+
+- name: Validate rendered sudoers content before user changes
+  ansible.builtin.include_tasks: validate_sudoers.yml
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_sudo_validation_user
+    label: "{{ local_identity_sudo_validation_user.name }}"
+  when: local_identity_sudo_validation_user.sudo_rules | length > 0

@@ -1,0 +1,7 @@
+---
+- name: Report validated local_identity inventory
+  ansible.builtin.debug:
+    msg: local_identity inventory is valid; no host mutations were performed.
+
+- name: Validate sudoers content without writing a file
+  ansible.builtin.include_tasks: validate_sudoers_preflight.yml

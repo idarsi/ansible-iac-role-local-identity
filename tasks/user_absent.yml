@@ -1,0 +1,112 @@
+---
+- name: Read the current passwd entry before removing the user
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ local_identity_user_record.name }}"
+    fail_key: false
+  register: local_identity_user_lookup
+  check_mode: false
+
+- name: Keep the current passwd entry for safe home validation
+  ansible.builtin.set_fact:
+    local_identity_current_passwd_entry: >-
+      {{ (local_identity_user_lookup.ansible_facts.getent_passwd | default({}, true)).get(local_identity_user_record.name)
+      | default(none, true) }}
+
+- name: Refuse to remove a home different from the current passwd home
+  ansible.builtin.assert:
+    that:
+      # getent passwd values are password, uid, gid, gecos, home, shell.
+      - >-
+          local_identity_current_passwd_entry is none or
+          (local_identity_current_passwd_entry is sequence and
+          local_identity_current_passwd_entry is not string and
+          local_identity_current_passwd_entry | length > 4 and
+          local_identity_current_passwd_entry[4] == local_identity_user_record.home)
+    fail_msg: "Refusing home removal for {{ local_identity_user_record.name }}: declared home does not match passwd."
+  when:
+    - local_identity_user_record.remove_home | bool
+    - local_identity_current_passwd_entry is not none
+
+- name: Inspect the explicitly declared home before removal
+  ansible.builtin.stat:
+    path: "{{ local_identity_user_record.home }}"
+    follow: false
+  register: local_identity_home_stat
+  when:
+    - local_identity_user_record.remove_home | bool
+    - local_identity_current_passwd_entry is not none
+
+- name: Inspect the role-managed home marker before removal
+  ansible.builtin.stat:
+    path: "{{ local_identity_user_record.home }}/{{ local_identity_home_removal_marker }}"
+    follow: false
+  register: local_identity_home_marker_stat
+  when:
+    - local_identity_user_record.remove_home | bool
+    - local_identity_current_passwd_entry is not none
+
+- name: Read the role-managed home marker before removal
+  ansible.builtin.slurp:
+    src: "{{ local_identity_user_record.home }}/{{ local_identity_home_removal_marker }}"
+  register: local_identity_home_marker_content
+  when:
+    - local_identity_user_record.remove_home | bool
+    - local_identity_current_passwd_entry is not none
+    - local_identity_home_marker_stat.stat.exists | default(false)
+
+- name: Refuse to remove an unmanaged home
+  ansible.builtin.assert:
+    that:
+      - local_identity_home_stat.stat.isdir | default(false)
+      - not (local_identity_home_stat.stat.islnk | default(false) | bool)
+      - local_identity_home_stat.stat.uid | default(-1) == (local_identity_current_passwd_entry[1] | int)
+      - local_identity_home_marker_stat.stat.exists | default(false)
+      - local_identity_home_marker_stat.stat.isreg | default(false)
+      - not (local_identity_home_marker_stat.stat.islnk | default(false) | bool)
+      - local_identity_home_marker_stat.stat.uid | default(-1) == (local_identity_current_passwd_entry[1] | int)
+      - (local_identity_home_marker_content.content | default('') | b64decode) == local_identity_home_marker_text + '\n'
+    fail_msg: >-
+      Refusing to remove {{ local_identity_user_record.home }} for
+      {{ local_identity_user_record.name }}: the home must be an existing,
+      user-owned directory containing the exact role-managed marker
+      {{ local_identity_home_removal_marker }}. Add the marker only after
+      confirming this home was created and is managed by this role; existing
+      homes are never marked automatically.
+  vars:
+    local_identity_home_marker_text: "Managed by ansible-iac-role-local-identity; do not remove."
+  when:
+    - local_identity_user_record.remove_home | bool
+    - local_identity_current_passwd_entry is not none
+
+- name: Refuse a symlink or non-directory home removal target
+  ansible.builtin.assert:
+    that:
+      - >-
+         not (local_identity_home_stat.stat.exists | default(false) | bool) or
+         (local_identity_home_stat.stat.isdir and
+         not (local_identity_home_stat.stat.islnk | default(false) | bool))
+    fail_msg: "Refusing to remove non-directory or symlinked home {{ local_identity_user_record.home }}."
+  when:
+    - local_identity_user_record.remove_home | bool
+    - local_identity_current_passwd_entry is not none
+
+- name: Remove local user's role-managed sudoers file
+  ansible.builtin.include_tasks: sudoers_guard.yml
+  vars:
+    local_identity_sudoers_target: "{{ local_identity_sudoers_dir }}/{{ local_identity_user_record.name }}"
+    local_identity_sudoers_guard_mode: remove
+
+- name: Remove local user
+  ansible.builtin.user:
+    name: "{{ local_identity_user_record.name }}"
+    state: absent
+    remove: false
+
+- name: Remove only the explicitly declared home after user removal
+  ansible.builtin.file:
+    path: "{{ local_identity_user_record.home }}"
+    state: absent
+  when:
+    - local_identity_user_record.remove_home | bool
+    - local_identity_current_passwd_entry is not none
