@@ -52,6 +52,16 @@
       ansible.builtin.assert:
         that: "'baseline_user' in getent_passwd"
 
+    - name: Look up the declared supplementary group
+      ansible.builtin.getent:
+        database: group
+        key: baseline_shared
+    - name: Assert the declared group exists with its requested GID and member
+      ansible.builtin.assert:
+        that:
+          - getent_group.baseline_shared[1] == '1700'
+          - "'baseline_user' in getent_group.baseline_shared[2].split(',')"
+
     - name: Read the baseline primary group
       ansible.builtin.getent:
         database: group

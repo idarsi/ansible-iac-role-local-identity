@@ -9,6 +9,11 @@
         state: absent
         remove: false
 
+    - name: Ensure the lifecycle group fixture is absent
+      ansible.builtin.group:
+        name: lifecycle_group
+        state: absent
+
     - name: Ensure the lifecycle fixture home is absent
       ansible.builtin.file:
         path: /home/lifecycle_user

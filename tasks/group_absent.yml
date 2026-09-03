@@ -1,0 +1,8 @@
+---
+- name: Guard declared local group removal
+  ansible.builtin.include_tasks: group_absent_guard.yml
+
+- name: Remove declared local group
+  ansible.builtin.group:
+    name: "{{ local_identity_group_record.name }}"
+    state: absent

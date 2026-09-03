@@ -1,7 +1,13 @@
 ---
+- name: Preflight all declared local group removals
+  ansible.builtin.include_tasks: groups_absent_preflight.yml
+
 - name: Remove all declared local identities
   ansible.builtin.include_tasks: user_absent.yml
   loop: "{{ local_identity_normalized_users }}"
   loop_control:
     loop_var: local_identity_user_record
     label: "{{ local_identity_user_record.name }}"
+
+- name: Remove all declared local groups
+  ansible.builtin.include_tasks: groups_absent.yml

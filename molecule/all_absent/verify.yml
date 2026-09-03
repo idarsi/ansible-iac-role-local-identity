@@ -16,6 +16,12 @@
       ansible.builtin.stat:
         path: /etc/sudoers.d/all_absent_user
       register: all_absent_sudoers
+    - name: Check declared group is absent
+      ansible.builtin.getent:
+        database: group
+        key: all_absent_group
+        fail_key: false
+      register: all_absent_group_lookup
     - name: Check unmanaged sudoers sentinel remains present
       ansible.builtin.stat:
         path: /etc/sudoers.d/all_absent_unmanaged
@@ -38,6 +44,9 @@
           - all_absent_user_lookup.rc != 127
           - not (all_absent_home.stat.exists | default(false) | bool)
           - not (all_absent_sudoers.stat.exists | default(false) | bool)
+          - >-
+            (all_absent_group_lookup.ansible_facts.getent_group | default({})).get(
+            'all_absent_group') is none
           - all_absent_unmanaged_sudoers.stat.isreg
           - all_absent_unmanaged_sudoers_header.stdout == '# This is not a role-managed sudoers file.'
           - all_absent_wrong_home.stat.isdir

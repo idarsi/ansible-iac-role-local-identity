@@ -38,3 +38,41 @@
           - guardrail_exact_header_sentinel.stat.isreg
           - guardrail_exact_header_sentinel.stat.uid != 0
           - guardrail_exact_header_sentinel.stat.gid != 0
+
+    - name: Confirm the shared group deletion sentinel remains present
+      ansible.builtin.getent:
+        database: group
+        key: guardrail_shared_group
+      register: guardrail_shared_group_lookup
+    - name: Assert the shared group was preserved
+      ansible.builtin.assert:
+        that:
+          - "'guardrail_shared_group' in guardrail_shared_group_lookup.ansible_facts.getent_group"
+
+    - name: Confirm the group-only all_absent fixture is absent
+      ansible.builtin.getent:
+        database: group
+        key: guardrail_all_absent_group
+        fail_key: false
+      register: guardrail_all_absent_group_lookup
+    - name: Assert group-only all_absent removed only the declared group
+      ansible.builtin.assert:
+        that:
+          - >-
+            (guardrail_all_absent_group_lookup.ansible_facts.getent_group |
+            default({})).get('guardrail_all_absent_group') is none
+
+    - name: Confirm GID guardrail groups remain present
+      ansible.builtin.getent:
+        database: group
+        key: "{{ item }}"
+      loop:
+        - guardrail_primary_group
+        - guardrail_omitted_gid_group
+        - guardrail_mismatched_gid_group
+      register: guardrail_gid_groups_lookup
+    - name: Assert primary ownership and GID mismatch groups were preserved
+      ansible.builtin.assert:
+        that:
+          - item.item in (item.ansible_facts.getent_group | default({}))
+      loop: "{{ guardrail_gid_groups_lookup.results }}"

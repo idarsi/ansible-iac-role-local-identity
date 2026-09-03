@@ -15,6 +15,11 @@
         state: absent
         remove: false
 
+    - name: Ensure the declared group fixture is absent
+      ansible.builtin.group:
+        name: baseline_shared
+        state: absent
+
     - name: Ensure the new-user fixture home is absent
       ansible.builtin.file:
         path: /home/baseline_user

@@ -19,7 +19,10 @@
       - local_identity_input.users is defined
       - local_identity_input.users is sequence
       - local_identity_input.users is not string
+      - local_identity_input.groups is not defined or local_identity_input.groups is sequence
+      - local_identity_input.groups is not defined or local_identity_input.groups is not string
       - local_identity_input.allow_user_deletion is not defined or local_identity_input.allow_user_deletion is boolean
+      - local_identity_input.allow_group_deletion is not defined or local_identity_input.allow_group_deletion is boolean
       - local_identity_input.allow_home_removal is not defined or local_identity_input.allow_home_removal is boolean
       - local_identity_input.allow_all_absent is not defined or local_identity_input.allow_all_absent is boolean
       - local_identity_input.home_removal_marker is not defined or (local_identity_input.home_removal_marker is string)
@@ -28,7 +31,34 @@
       - local_identity_input.authorized_keys_exclusive is not defined or local_identity_input.authorized_keys_exclusive is boolean
       - local_identity_input.sudoers_dir is not defined or local_identity_input.sudoers_dir is string
       - local_identity_input.sudoers_mode is not defined or local_identity_input.sudoers_mode is string
-    fail_msg: local_identity.state must be validate/present/absent/all_absent and users must be a list.
+    fail_msg: local_identity.state must be validate/present/absent/all_absent; users must be a list; groups, when supplied, must be a list.
+
+- name: Validate local group records
+  ansible.builtin.assert:
+    that:
+      - local_identity_group is mapping
+      - local_identity_group.name is defined
+      - local_identity_group.name is string
+      - local_identity_group.name is match('^[a-z_][a-z0-9_-]{0,31}$')
+      - >-
+        (local_identity_input.groups | default([]) | selectattr('name', 'defined') |
+        selectattr('name', 'equalto', local_identity_group.name) | list | length) == 1
+      - local_identity_group.gid is not defined or local_identity_group.gid is integer
+      - local_identity_group.gid is not defined or local_identity_group.gid is not boolean
+      - >-
+        local_identity_group.gid is not defined or (local_identity_group.gid is
+        integer and local_identity_group.gid is not boolean and
+        local_identity_group.gid > 0 and local_identity_group.gid <= 2147483647)
+      - local_identity_group.system is not defined or local_identity_group.system is boolean
+      - >-
+        local_identity_group.gid is not defined or (local_identity_input.groups |
+        default([]) | selectattr('gid', 'defined') | selectattr('gid', 'equalto',
+        local_identity_group.gid) | list | length) == 1
+    fail_msg: Invalid local_identity group record; names must be unique Linux-safe names and gid must be a unique positive integer.
+  loop: "{{ local_identity_input.groups | default([]) }}"
+  loop_control:
+    loop_var: local_identity_group
+    label: "{{ local_identity_group.name | default('unnamed') }}"
 
 - name: Validate user records
   ansible.builtin.assert:
@@ -116,23 +146,31 @@
     loop_var: local_identity_sudo_user
     label: "{{ local_identity_sudo_user.name }}"
 
-- name: Validate deletion guardrails
+- name: Validate all_absent authorization
   ansible.builtin.assert:
-    that:
-      - >-
-        (local_identity_input.state | default(local_identity_state)) !=
-        'all_absent' or (local_identity_input.allow_all_absent |
-        default(local_identity_allow_all_absent) | bool)
-      - >-
-        (local_identity_input.state | default(local_identity_state)) in
-        ['present', 'validate'] or (local_identity_input.allow_user_deletion |
-        default(local_identity_allow_user_deletion) | bool)
-      - >-
-        local_identity_input.users | selectattr('remove_home', 'defined') |
-        selectattr('remove_home', 'equalto', true) | list | length == 0 or
-        (local_identity_input.allow_home_removal |
-        default(local_identity_allow_home_removal) | bool)
-    fail_msg: Deletion requires allow_user_deletion; all_absent additionally requires allow_all_absent; home removal requires allow_home_removal.
+    that: >-
+      (local_identity_input.state | default(local_identity_state)) !=
+      'all_absent' or (local_identity_input.allow_all_absent |
+      default(local_identity_allow_all_absent) | bool)
+    fail_msg: "all_absent requires allow_all_absent: true."
+
+- name: Validate user deletion authorization
+  ansible.builtin.assert:
+    that: >-
+      (local_identity_input.state | default(local_identity_state)) in
+      ['present', 'validate'] or (local_identity_input.users | length == 0) or
+      (local_identity_input.allow_user_deletion |
+      default(local_identity_allow_user_deletion) | bool)
+    fail_msg: "User deletion requires allow_user_deletion: true."
+
+- name: Validate home removal authorization
+  ansible.builtin.assert:
+    that: >-
+      local_identity_input.users | selectattr('remove_home', 'defined') |
+      selectattr('remove_home', 'equalto', true) | list | length == 0 or
+      (local_identity_input.allow_home_removal |
+      default(local_identity_allow_home_removal) | bool)
+    fail_msg: "Home removal requires allow_home_removal: true."
 
 - name: Validate home removal paths
   ansible.builtin.assert:

@@ -35,12 +35,16 @@
           local_identity:
             state: absent
             allow_user_deletion: true
+            allow_group_deletion: true
             allow_home_removal: true
             users:
               - name: lifecycle_user
                 home: /home/lifecycle_user
                 create_home: true
                 remove_home: true
+            groups:
+              - name: lifecycle_group
+                gid: 1702
 
     - name: Verify the lifecycle user's home was removed
       ansible.builtin.stat:
@@ -60,3 +64,15 @@
             lifecycle_user_after_removal.rc != 0
           - lifecycle_user_after_removal.rc != 127
           - not lifecycle_home_after_removal.stat.exists
+
+    - name: Check the lifecycle group is absent
+      ansible.builtin.command: getent group lifecycle_group
+      changed_when: false
+      failed_when: false
+      register: lifecycle_group_after_removal
+
+    - name: Assert the declared lifecycle group was removed explicitly
+      ansible.builtin.assert:
+        that:
+          - lifecycle_group_after_removal.rc != 0
+          - lifecycle_group_after_removal.rc != 127

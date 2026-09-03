@@ -34,6 +34,19 @@
                 uid: 1501
                 gid: 1502
 
+    - name: Accept a declared local group
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: validate
+            groups:
+              - name: valid_declared_group
+                gid: 1503
+                system: true
+            users: []
+
     - name: Initialize invalid UID and GID validation results
       ansible.builtin.set_fact:
         local_identity_numeric_results: []
@@ -109,6 +122,38 @@
             (local_identity_invalid_group_role.result | default('')) is
             search('Each groups entry must be a non-empty Linux-safe name')
         fail_msg: Invalid Linux group input was accepted.
+
+    - name: Reject an invalid declared local group
+      block:
+        - name: Run the invalid declared group blueprint
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: validate
+                groups:
+                  - name: InvalidGroup
+                    gid: '1504'
+                users: []
+        - name: Record unexpected declared group validation success
+          ansible.builtin.set_fact:
+            local_identity_invalid_declared_group_role:
+              failed: false
+      rescue:
+        - name: Record the declared group validation error
+          ansible.builtin.set_fact:
+            local_identity_invalid_declared_group_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert the expected declared group schema failure
+      ansible.builtin.assert:
+        that:
+          - local_identity_invalid_declared_group_role.failed | default(false)
+          - >-
+            (local_identity_invalid_declared_group_role.result | default('')) is
+            search('Invalid local_identity group record')
+        fail_msg: Invalid declared local group input was accepted.
 
     - name: Reject multiline authorized keys
       block:

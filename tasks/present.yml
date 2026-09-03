@@ -1,4 +1,7 @@
 ---
+- name: Converge declared local groups
+  ansible.builtin.include_tasks: groups_present.yml
+
 - name: Converge declared local users
   ansible.builtin.include_tasks: user_present.yml
   loop: "{{ local_identity_normalized_users }}"

@@ -15,7 +15,7 @@ application-version dimension for this role.
 | RHEL UBI 9 / `registry.access.redhat.com/ubi9/ubi-init:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Primary Enterprise Linux coverage |
 | RHEL UBI 10 / `registry.access.redhat.com/ubi10/ubi-init:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Primary Enterprise Linux coverage |
 | Rocky Linux 9 / `rockylinux:9` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Primary Enterprise Linux compatibility coverage |
-| Rocky Linux 10 / `rockylinux:10` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Primary Enterprise Linux compatibility coverage |
+| Rocky Linux 10 / `quay.io/rockylinux/rockylinux:10` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Primary Enterprise Linux compatibility coverage |
 | Ubuntu 22.04 / `geerlingguy/docker-ubuntu2204-ansible:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Retained compatibility coverage |
 
 Images are pulled and run directly by Podman. Tags are not pinned by digest.
@@ -25,26 +25,31 @@ implementation, not a Red Hat subscription.
 
 ## Scenario coverage
 
-- `validation`: Runs `state: validate` with an empty user list, a minimal valid
+- `validation`: Runs `state: validate` with empty users and groups, a minimal valid
   user, numeric UID/GID values, and valid unrestricted sudo opt-in. It asserts
-  actionable failure messages for invalid numeric values, invalid groups,
+  actionable failure messages for invalid numeric values, invalid user and
+  top-level groups,
   multiline keys, unsafe sudo syntax, and sudo variants. Prepare and verify
   prove that validation does not create an account or sudoers file.
 - `baseline`: Runs normal `state: present` convergence and Molecule's
   idempotence check. It verifies user creation, sudoers rendering, home marker
   ownership/content, preservation of an existing home marker state, numeric
-  primary-group creation and reuse, and a valid present-state check-mode run.
+  primary-group creation and reuse, declared group creation before supplementary
+  membership, and a valid present-state check-mode run.
 - `lifecycle`: Creates a user and then exercises `state: absent` with explicit
-  deletion and home-removal authorization. It verifies that the declared user
-  and marked home are removed.
-- `all_absent`: Exercises `state: all_absent` with both destructive opt-ins and
+  user/group deletion and home-removal authorization. It verifies that the
+  declared user, explicitly identified group, and marked home are removed.
+- `all_absent`: Exercises `state: all_absent` with all destructive opt-ins and
   a role-managed home marker. It verifies removal of only the declared user,
-  home, and sudoers file while preserving an unmanaged sudoers file and an
-  undeclared home.
+  declared group, home, and sudoers file while preserving an unmanaged sudoers
+  file and an undeclared home.
 - `guardrails`: Verifies destructive check mode is non-mutating and that
-  deletion, `all_absent`, unmanaged home removal, unmanaged or unsafe-metadata
-  sudoers updates, and conflicting same-name GIDs fail with expected error
-  messages. Final assertions verify unmanaged resources remain present.
+  user deletion, group-only absent/all_absent requests, nonexistent-group
+  handling, group deletion without opt-in, shared-group removal, undeclared
+  primary-group ownership, omitted or mismatched GIDs, `all_absent`, unmanaged
+  home removal, unmanaged or unsafe-metadata sudoers updates, and conflicting
+  same-name GIDs fail with expected error messages.
+  Final assertions verify unmanaged resources remain present.
 
 All five scenarios run on every image listed in the matrix. No scenario currently
 covers Debian, Ubuntu 24.04,

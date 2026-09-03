@@ -111,9 +111,13 @@ Run it with `ansible-playbook -i inventory.yml site.yml`.
 iac_blueprint:
   local_identity:
     state: present
+    groups:
+      - name: appusers
+        gid: 1700
+        system: true
     users:
       - name: deploy
-        groups: [adm]
+        groups: [appusers, adm]
         shell: /bin/bash
         home: /home/deploy
         comment: Deployment account
@@ -127,8 +131,10 @@ iac_blueprint:
 ```
 
 `users` is required and must be a list. User names cannot be `root`, must be
-Linux-safe names of up to 32 characters, and must be unique. Values in
+Linux-safe names of up to 32 characters, and must be unique. Values in a user's
 `groups`, `authorized_keys`, and `sudo_rules` must be single-line strings.
+The optional top-level `groups` list declares local groups and is converged
+before users, so users can use groups declared in the same blueprint.
 
 ### Blueprint fields
 
@@ -136,7 +142,9 @@ Top-level field | Required | Default | Description
 ----------------|----------|---------|-------------
 `state` | No | `present` | One of `validate`, `present`, `absent`, or `all_absent`.
 `users` | Yes | — | Users to manage or remove.
-`allow_user_deletion` | No | `false` | Required for `absent` and `all_absent`.
+`groups` | No | `[]` | Local groups to manage or remove.
+`allow_user_deletion` | No | `false` | Required for `absent` and `all_absent` when `users` is non-empty.
+`allow_group_deletion` | No | `false` | Required only when an existing declared group is removable in `absent` or `all_absent`; deletion also requires an explicit matching `gid` and safe membership.
 `allow_home_removal` | No | `false` | Required when any user sets `remove_home: true`.
 `allow_all_absent` | No | `false` | Required for `all_absent`.
 `home_removal_marker` | No | `.ansible-iac-role-local-identity-managed` | Safe filename used to prove role-managed home ownership.
@@ -163,6 +171,14 @@ Field | Required | Default | Description
 `authorized_keys_exclusive` | No | Top-level value (`false`) | Whether declared keys exclusively control the file.
 `allow_unrestricted_sudo` | No | `false` | Explicitly permits unrestricted sudo command specifications containing `ALL`.
 `sudo_rules` | No | `[]` | Single-line sudoers entries beginning with this user name.
+
+Each declared local group supports these fields:
+
+Field | Required | Default | Description
+------|----------|---------|-------------
+`name` | Yes | — | Local group name; unique and Linux-safe.
+`gid` | No | Module/system allocation | Positive numeric group ID.
+`system` | No | `false` | Passes the system-group request to Ansible.
 
 ## Configuration examples
 
@@ -193,9 +209,21 @@ it does not provide a password field in the blueprint.
 > **Warning:** `absent` and `all_absent` delete declared local users and their
 > role-managed sudoers files. Confirm the target before enabling deletion.
 
-`absent` requires `allow_user_deletion: true`; `all_absent` additionally
-requires `allow_all_absent: true`. Home removal additionally requires
+`absent` requires `allow_user_deletion: true` when users are declared. A
+group-only `absent` request is allowed to reach the group guardrails. An
+existing declared group requires `allow_group_deletion: true`; a declared group
+that does not exist is safely ignored without that flag. `all_absent` always
+requires `allow_all_absent: true`, including group-only and empty requests, and
+also requires `allow_user_deletion: true` when users are declared. Home removal additionally requires
 `allow_home_removal: true`, an explicit `home`, and `remove_home: true`.
+Declared group removal is never implicit. A group is removed only when its
+declared `gid` is present and matches the current group, and every current
+member is one of the users declared for removal in the same operation, and no
+undeclared user uses that GID as its primary group. Groups
+with other members, mismatched or omitted GIDs, or pre-existing groups that do
+not satisfy these checks are preserved and the operation fails before user
+mutation. Groups created with an automatically allocated GID are therefore
+present-only unless their GID is later declared explicitly.
 Before removal, the home must match the user's passwd entry and be a
 non-symlink, user-owned directory containing the exact marker created by this
 role. Unmanaged or same-named foreign sudoers files are preserved and cause the
@@ -205,8 +233,8 @@ operation to fail.
 
 All inventory validation runs before host mutation. `state: validate` also
 checks rendered sudoers content without writing a persistent sudoers file.
-Validation covers types, names, duplicate users/UIDs/homes, safe paths, GID
-values, sudo-rule ownership, and deletion guardrails.
+Validation covers types, names, duplicate users/groups/UIDs/homes, safe paths,
+GID values, sudo-rule ownership, and deletion guardrails.
 
 ## Testing
 
