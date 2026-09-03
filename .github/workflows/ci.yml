@@ -48,7 +48,7 @@ jobs:
           - name: Rocky Linux 9
             image: rockylinux:9
           - name: Rocky Linux 10
-            image: rockylinux:10
+            image: quay.io/rockylinux/rockylinux:10
           - name: Ubuntu 22.04
             image: geerlingguy/docker-ubuntu2204-ansible:latest
         scenario: [validation, baseline, lifecycle, guardrails, all_absent]
