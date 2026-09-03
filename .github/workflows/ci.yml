@@ -27,7 +27,26 @@ jobs:
         run: >-
           python -m pip install ansible-core==2.21.3 ansible-lint==26.8.0
       - name: Install role collections
-        run: ansible-galaxy collection install -r requirements.yml
+        run: |
+          max_attempts=5
+          delay=10
+          for ((attempt=1; attempt<=max_attempts; attempt++)); do
+            echo "Installing role collections"
+            echo "Attempt ${attempt}/${max_attempts}"
+            if ansible-galaxy collection install -r requirements.yml; then
+              echo "Role collections installed successfully"
+              exit 0
+            else
+              status=$?
+            fi
+            if (( attempt == max_attempts )); then
+              echo "Installation failed after ${max_attempts} attempts" >&2
+              exit "$status"
+            fi
+            echo "Installation failed; retrying in ${delay} seconds" >&2
+            sleep "$delay"
+            delay=$((delay * 2))
+          done
       - name: Run syntax check
         run: ansible-playbook --syntax-check tests/syntax.yml
       - name: Run production-profile Ansible Lint
@@ -77,7 +96,26 @@ jobs:
           python -m pip install ansible-core==2.21.3 molecule==26.8.0
           molecule-plugins[podman]==26.7.15
       - name: Install role collections
-        run: ansible-galaxy collection install -r requirements.yml
+        run: |
+          max_attempts=5
+          delay=10
+          for ((attempt=1; attempt<=max_attempts; attempt++)); do
+            echo "Installing role collections"
+            echo "Attempt ${attempt}/${max_attempts}"
+            if ansible-galaxy collection install -r requirements.yml; then
+              echo "Role collections installed successfully"
+              exit 0
+            else
+              status=$?
+            fi
+            if (( attempt == max_attempts )); then
+              echo "Installation failed after ${max_attempts} attempts" >&2
+              exit "$status"
+            fi
+            echo "Installation failed; retrying in ${delay} seconds" >&2
+            sleep "$delay"
+            delay=$((delay * 2))
+          done
       - name: Run Molecule scenario
         env:
           MOLECULE_IMAGE: ${{ matrix.platform.image }}
