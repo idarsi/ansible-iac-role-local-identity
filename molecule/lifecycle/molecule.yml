@@ -7,7 +7,7 @@ driver:
   name: podman
 platforms:
   - name: lifecycle-instance
-    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    image: "${MOLECULE_IMAGE:-geerlingguy/docker-ubuntu2204-ansible:latest}"
     pre_build_image: true
 provisioner:
   name: ansible
@@ -19,9 +19,13 @@ provisioner:
         iac_blueprint:
           local_identity:
             state: present
+            groups:
+              - name: lifecycle_group
+                gid: 1702
             users:
               - name: lifecycle_user
                 home: /home/lifecycle_user
                 shell: /bin/bash
+                groups: [lifecycle_group]
 verifier:
   name: ansible

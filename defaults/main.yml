@@ -2,6 +2,7 @@
 # Public input is iac_blueprint.local_identity.
 local_identity_state: present
 local_identity_allow_user_deletion: false
+local_identity_allow_group_deletion: false
 local_identity_allow_home_removal: false
 local_identity_allow_all_absent: false
 local_identity_home_removal_marker: .ansible-iac-role-local-identity-managed

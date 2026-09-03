@@ -64,7 +64,7 @@
           - local_identity_deletion_guardrail_role.failed | default(false)
           - >-
             (local_identity_deletion_guardrail_role.result | default('')) is
-            search('Deletion requires')
+            search('User deletion requires')
         fail_msg: >-
           Deletion guardrail was accepted or failed for the wrong reason.
 
@@ -89,6 +89,260 @@
       ansible.builtin.group:
         name: guardrail_unmanaged_group
         state: present
+
+    - name: Create a shared group deletion sentinel
+      ansible.builtin.group:
+        name: guardrail_shared_group
+        gid: 1703
+        state: present
+    - name: Add the fixture user to the shared group sentinel
+      ansible.builtin.user:
+        name: guardrail_user
+        groups: [guardrail_shared_group]
+        append: true
+
+    - name: Create a primary-group ownership sentinel
+      ansible.builtin.group:
+        name: guardrail_primary_group
+        gid: 1704
+        state: present
+    - name: Create an undeclared user owning the primary-group sentinel
+      ansible.builtin.user:
+        name: guardrail_primary_user
+        group: guardrail_primary_group
+        create_home: false
+
+    - name: Reject removal of a group owned by an undeclared primary group user
+      block:
+        - name: Run primary-group-owned deletion with explicit opt-in
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: absent
+                allow_group_deletion: true
+                users: []
+                groups:
+                  - name: guardrail_primary_group
+                    gid: 1704
+        - name: Record unexpected primary-group deletion success
+          ansible.builtin.set_fact:
+            local_identity_primary_group_guardrail_role:
+              failed: false
+      rescue:
+        - name: Record the primary-group ownership guardrail error
+          ansible.builtin.set_fact:
+            local_identity_primary_group_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert undeclared primary-group ownership was rejected
+      ansible.builtin.assert:
+        that:
+          - local_identity_primary_group_guardrail_role.failed | default(false)
+          - >-
+            (local_identity_primary_group_guardrail_role.result | default('')) is
+            search('primary group')
+
+    - name: Allow a nonexistent declared group without deletion opt-in
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: absent
+            users: []
+            groups:
+              - name: guardrail_nonexistent_group
+
+    - name: Create groups for GID preservation guardrails
+      ansible.builtin.group:
+        name: "{{ item.name }}"
+        gid: "{{ item.gid }}"
+        state: present
+      loop:
+        - {name: guardrail_omitted_gid_group, gid: 1705}
+        - {name: guardrail_mismatched_gid_group, gid: 1706}
+
+    - name: Create the group-only all_absent fixture
+      ansible.builtin.group:
+        name: guardrail_all_absent_group
+        gid: 1708
+        state: present
+      tags:
+        - molecule-idempotence-notest
+
+    - name: Reject group-only all_absent without its explicit opt-in
+      block:
+        - name: Run group-only all_absent with allow_all_absent disabled
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: all_absent
+                allow_group_deletion: true
+                users: []
+                groups:
+                  - name: guardrail_all_absent_group
+                    gid: 1708
+        - name: Record unexpected group-only all_absent success
+          ansible.builtin.set_fact:
+            local_identity_group_only_all_absent_guardrail_role:
+              failed: false
+      rescue:
+        - name: Record the group-only all_absent authorization error
+          ansible.builtin.set_fact:
+            local_identity_group_only_all_absent_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert group-only all_absent requires explicit authorization
+      ansible.builtin.assert:
+        that:
+          - local_identity_group_only_all_absent_guardrail_role.failed | default(false)
+          - >-
+            (local_identity_group_only_all_absent_guardrail_role.result |
+            default('')) is search('all_absent requires allow_all_absent')
+
+    - name: Remove the declared group with group-only all_absent
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      tags:
+        - molecule-idempotence-notest
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: all_absent
+            allow_all_absent: true
+            allow_group_deletion: true
+            users: []
+            groups:
+              - name: guardrail_all_absent_group
+                gid: 1708
+
+    - name: Reject removal when the declared GID is omitted
+      block:
+        - name: Run omitted-GID group deletion
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: absent
+                allow_group_deletion: true
+                users: []
+                groups:
+                  - name: guardrail_omitted_gid_group
+        - name: Record unexpected omitted-GID deletion success
+          ansible.builtin.set_fact:
+            local_identity_omitted_gid_guardrail_role: {failed: false}
+      rescue:
+        - name: Record omitted-GID preservation error
+          ansible.builtin.set_fact:
+            local_identity_omitted_gid_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert omitted-GID group removal was rejected
+      ansible.builtin.assert:
+        that:
+          - local_identity_omitted_gid_guardrail_role.failed | default(false)
+          - >-
+            (local_identity_omitted_gid_guardrail_role.result | default('')) is
+            search('declared GID')
+
+    - name: Reject removal when the declared GID mismatches
+      block:
+        - name: Run mismatched-GID group deletion
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: absent
+                allow_group_deletion: true
+                users: []
+                groups:
+                  - name: guardrail_mismatched_gid_group
+                    gid: 1707
+        - name: Record unexpected mismatched-GID deletion success
+          ansible.builtin.set_fact:
+            local_identity_mismatched_gid_guardrail_role: {failed: false}
+      rescue:
+        - name: Record mismatched-GID preservation error
+          ansible.builtin.set_fact:
+            local_identity_mismatched_gid_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert mismatched-GID group removal was rejected
+      ansible.builtin.assert:
+        that:
+          - local_identity_mismatched_gid_guardrail_role.failed | default(false)
+          - >-
+            (local_identity_mismatched_gid_guardrail_role.result | default('')) is
+            search('declared GID')
+
+    - name: Reject group deletion without explicit opt-in
+      block:
+        - name: Run group deletion with its safety flag disabled
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: absent
+                users: []
+                groups:
+                  - name: guardrail_shared_group
+                    gid: 1703
+        - name: Record unexpected group deletion success
+          ansible.builtin.set_fact:
+            local_identity_group_opt_in_guardrail_role:
+              failed: false
+      rescue:
+        - name: Record the group deletion guardrail error
+          ansible.builtin.set_fact:
+            local_identity_group_opt_in_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert group deletion requires explicit opt-in
+      ansible.builtin.assert:
+        that:
+          - local_identity_group_opt_in_guardrail_role.failed | default(false)
+          - >-
+            (local_identity_group_opt_in_guardrail_role.result | default('')) is
+            search('allow_group_deletion')
+
+    - name: Reject removal of a shared local group
+      block:
+        - name: Run shared group deletion with explicit opt-in
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: absent
+                allow_group_deletion: true
+                users: []
+                groups:
+                  - name: guardrail_shared_group
+                    gid: 1703
+        - name: Record unexpected shared group deletion success
+          ansible.builtin.set_fact:
+            local_identity_shared_group_guardrail_role:
+              failed: false
+      rescue:
+        - name: Record the shared group guardrail error
+          ansible.builtin.set_fact:
+            local_identity_shared_group_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert shared group removal was rejected
+      ansible.builtin.assert:
+        that:
+          - local_identity_shared_group_guardrail_role.failed | default(false)
+          - >-
+            (local_identity_shared_group_guardrail_role.result | default('')) is
+            search('every supplementary member')
 
     - name: Create an exact-header sudoers ownership sentinel
       ansible.builtin.copy:
@@ -198,7 +452,7 @@
           - local_identity_all_absent_guardrail_role.failed | default(false)
           - >-
             (local_identity_all_absent_guardrail_role.result | default('')) is
-            search('Deletion requires')
+            search('all_absent requires allow_all_absent')
         fail_msg: >-
           all_absent guardrail was accepted or failed for the wrong reason.
 

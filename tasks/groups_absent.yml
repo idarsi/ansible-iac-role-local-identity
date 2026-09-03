@@ -1,0 +1,7 @@
+---
+- name: Remove declared local groups after users
+  ansible.builtin.include_tasks: group_absent.yml
+  loop: "{{ local_identity_normalized_groups }}"
+  loop_control:
+    loop_var: local_identity_group_record
+    label: "{{ local_identity_group_record.name }}"

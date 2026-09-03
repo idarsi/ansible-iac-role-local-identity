@@ -7,7 +7,7 @@ driver:
   name: podman
 platforms:
   - name: baseline-instance
-    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    image: "${MOLECULE_IMAGE:-geerlingguy/docker-ubuntu2204-ansible:latest}"
     pre_build_image: true
 provisioner:
   name: ansible
@@ -19,11 +19,16 @@ provisioner:
         iac_blueprint:
           local_identity:
             state: present
+            groups:
+              - name: baseline_shared
+                gid: 1700
+                system: true
             users:
               - name: baseline_user
                 home: /home/baseline_user
                 shell: /bin/bash
                 gid: 1600
+                groups: [baseline_shared]
                 sudo_rules:
                   - 'baseline_user ALL=(root) /usr/bin/true'
               - name: baseline_existing_user

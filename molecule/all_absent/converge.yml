@@ -8,6 +8,10 @@
         allow_all_absent: true
         allow_user_deletion: true
         allow_home_removal: true
+        allow_group_deletion: true
+        groups:
+          - name: all_absent_group
+            gid: 1710
         users:
           - name: all_absent_user
             home: /home/all_absent_user

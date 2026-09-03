@@ -2,6 +2,9 @@
 iac_blueprint:
   local_identity:
     state: present
+    groups:
+      - name: appusers
     users:
       - name: app
+        groups: [appusers]
         shell: /usr/sbin/nologin

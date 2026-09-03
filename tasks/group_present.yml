@@ -1,0 +1,7 @@
+---
+- name: Ensure local group is present
+  ansible.builtin.group:
+    name: "{{ local_identity_group_record.name }}"
+    gid: "{{ local_identity_group_record.gid | default(omit) }}"
+    system: "{{ local_identity_group_record.system }}"
+    state: present

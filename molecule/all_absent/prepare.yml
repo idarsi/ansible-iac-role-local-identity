@@ -10,6 +10,12 @@
         create_home: true
         shell: /bin/bash
 
+    - name: Create the declared group fixture
+      ansible.builtin.group:
+        name: all_absent_group
+        gid: 1710
+        state: present
+
     - name: Create the fixture sudoers file
       ansible.builtin.copy:
         dest: /etc/sudoers.d/all_absent_user

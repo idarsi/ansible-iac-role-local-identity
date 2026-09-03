@@ -1,0 +1,72 @@
+---
+- name: Read the declared local group before removal
+  ansible.builtin.getent:
+    database: group
+    key: "{{ local_identity_group_record.name }}"
+    fail_key: false
+  register: local_identity_group_lookup
+  check_mode: false
+
+- name: Normalize the current local group record for removal validation
+  ansible.builtin.set_fact:
+    local_identity_current_group_entry: >-
+      {{ (local_identity_group_lookup.ansible_facts.getent_group | default({})).get(local_identity_group_record.name) | default([], true) }}
+
+- name: Normalize current local group membership for removal validation
+  ansible.builtin.set_fact:
+    local_identity_group_members: []
+
+- name: Require explicit opt-in when the declared group exists
+  ansible.builtin.assert:
+    that:
+      - local_identity_input.allow_group_deletion | default(local_identity_allow_group_deletion) | bool
+    fail_msg: >-
+      Refusing to remove {{ local_identity_group_record.name }}: an existing
+      declared group requires allow_group_deletion: true.
+  when: local_identity_current_group_entry | length > 1
+
+- name: Read current local group members for removal validation
+  ansible.builtin.set_fact:
+    local_identity_group_members: >-
+      {{ (local_identity_current_group_entry[2] | default('')).split(',') | reject('equalto', '') | list }}
+  when: local_identity_current_group_entry | length > 2
+
+- name: Normalize current local primary-group ownership for removal validation
+  ansible.builtin.set_fact:
+    local_identity_group_primary_owners: []
+
+- name: Read local passwd entries for primary-group ownership validation
+  ansible.builtin.getent:
+    database: passwd
+    fail_key: false
+  register: local_identity_passwd_lookup
+  check_mode: false
+
+- name: Collect undeclared users with the target group as primary group
+  ansible.builtin.set_fact:
+    local_identity_group_primary_owners: >-
+      {{ local_identity_group_primary_owners + [local_identity_passwd_entry.key] }}
+  loop: "{{ (local_identity_passwd_lookup.ansible_facts.getent_passwd | default({})) | dict2items }}"
+  loop_control:
+    loop_var: local_identity_passwd_entry
+    label: "{{ local_identity_passwd_entry.key }}"
+  when:
+    - local_identity_current_group_entry | length > 1
+    - (local_identity_passwd_entry.value[2] | int) == (local_identity_current_group_entry[1] | default(0) | int)
+    - local_identity_passwd_entry.key not in (local_identity_normalized_users | map(attribute='name') | list)
+
+- name: Refuse removal of an unowned or shared local group
+  ansible.builtin.assert:
+    that:
+      - >-
+        local_identity_current_group_entry | length < 2 or
+        (local_identity_group_record.gid is defined and
+        (local_identity_current_group_entry[1] | default(0) | int) == (local_identity_group_record.gid | int) and
+        (local_identity_group_members | reject('equalto', '') | list |
+         difference(local_identity_normalized_users | map(attribute='name') |
+         list) | length == 0))
+      - local_identity_group_primary_owners | length == 0
+    fail_msg: >-
+      Refusing to remove {{ local_identity_group_record.name }}: group deletion
+       requires the declared GID to match, every supplementary member to be a
+       declared user, and no undeclared user to use it as a primary group.

@@ -7,7 +7,7 @@ driver:
   name: podman
 platforms:
   - name: guardrails-instance
-    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    image: "${MOLECULE_IMAGE:-geerlingguy/docker-ubuntu2204-ansible:latest}"
     pre_build_image: true
     privileged: false
     capabilities: []

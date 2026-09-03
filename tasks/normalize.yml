@@ -13,6 +13,22 @@
   ansible.builtin.set_fact:
     local_identity_normalized_users: []
 
+- name: Initialize normalized local_identity groups
+  ansible.builtin.set_fact:
+    local_identity_normalized_groups: []
+
+- name: Normalize local_identity groups
+  ansible.builtin.set_fact:
+    local_identity_normalized_groups: >-
+      {{ local_identity_normalized_groups + [local_identity_group_defaults |
+      combine(local_identity_group, recursive=True)] }}
+  loop: "{{ local_identity_input.groups | default([]) }}"
+  loop_control:
+    loop_var: local_identity_group
+  vars:
+    local_identity_group_defaults:
+      system: false
+
 - name: Normalize local_identity users
   ansible.builtin.set_fact:
     local_identity_normalized_users: >-
