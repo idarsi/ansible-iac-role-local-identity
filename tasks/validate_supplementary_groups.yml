@@ -1,0 +1,14 @@
+---
+- name: Reject supplementary groups outside the local identity scope
+  ansible.builtin.assert:
+    that:
+      - >-
+        local_identity_group_name in (local_identity_normalized_groups | map(attribute='name') | list) or
+        local_identity_group_name in (local_identity_supplementary_groups.ansible_facts.getent_group | default({}))
+    fail_msg: >-
+      Supplementary group {{ local_identity_group_name }} for
+      {{ local_identity_user_preflight.name }} does not resolve through local
+      files. Remote-only NSS groups are not supported for managed membership.
+  loop: "{{ local_identity_user_preflight.groups }}"
+  loop_control:
+    loop_var: local_identity_group_name

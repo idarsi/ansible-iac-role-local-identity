@@ -15,9 +15,8 @@
   ansible.builtin.assert:
     that:
       - local_identity_sudo_user.allow_unrestricted_sudo | default(false) | bool or
-        (local_identity_sudo_rule_no_comment | regex_replace(
-        '^' ~ local_identity_sudo_user.name ~ '\\s+[^=]+\\s*=\\s*(?:\\([^)]*\\)\\s*)?',
-        '') is not search('(?:^|[,\\s:])ALL(?:\\s|,|$)'))
+        local_identity_sudo_command_entries | select('equalto', 'ALL') | list | length == 0
+      - local_identity_sudo_rule_no_comment is not search('=[^=]*\\([^)]*(?:[(,:\\s])#0(?:[),:\\s]|$)[^)]*\\)')
     fail_msg: >-
       Unrestricted sudo command ALL requires allow_unrestricted_sudo: true
       for user {{ local_identity_sudo_user.name }}.
@@ -26,5 +25,10 @@
     loop_var: local_identity_sudo_rule
     label: "{{ local_identity_sudo_user.name }}"
   vars:
-    local_identity_sudo_rule_no_comment: >-
-      {{ local_identity_sudo_rule | regex_replace('\\s*#.*$', '') | trim }}
+    local_identity_sudo_command_spec: >-
+      {{ (local_identity_sudo_rule.split('=', 1)[1] | default('')) |
+      regex_replace('#.*$', '') |
+      regex_replace('^[^)]*\)\s*', '') | trim }}
+    local_identity_sudo_command_entries: >-
+      {{ local_identity_sudo_command_spec.split(',') | map('trim') | list }}
+    local_identity_sudo_rule_no_comment: "{{ local_identity_sudo_rule | regex_replace('#.*$', '') }}"

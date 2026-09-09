@@ -32,11 +32,13 @@ provisioner:
                 sudo_rules:
                   - 'baseline_user ALL=(root) /usr/bin/true'
               - name: baseline_existing_user
-                home: /home/baseline_existing_user
                 shell: /bin/bash
+                groups: []
               - name: baseline_reuse_user
                 home: /home/baseline_reuse_user
                 shell: /bin/bash
                 gid: 1600
+              - name: baseline_implicit_user
+                shell: /bin/bash
 verifier:
   name: ansible

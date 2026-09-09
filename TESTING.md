@@ -29,7 +29,7 @@ implementation, not a Red Hat subscription.
   user, numeric UID/GID values, and valid unrestricted sudo opt-in. It asserts
   actionable failure messages for invalid numeric values, invalid user and
   top-level groups,
-  multiline keys, unsafe sudo syntax, and sudo variants. Prepare and verify
+  multiline and malformed public keys, unsafe sudo syntax, and sudo variants. Prepare and verify
   prove that validation does not create an account or sudoers file.
 - `baseline`: Runs normal `state: present` convergence and Molecule's
   idempotence check. It verifies user creation, sudoers rendering, home marker
@@ -50,6 +50,11 @@ implementation, not a Red Hat subscription.
   home removal, unmanaged or unsafe-metadata sudoers updates, and conflicting
   same-name GIDs fail with expected error messages.
   Final assertions verify unmanaged resources remain present.
+- Functional scenarios also cover UID/GID drift and collisions, empty
+  supplementary-group clearing (including replacement by an explicitly empty
+  list), local-files NSS isolation and remote-only NSS rejection, implicit
+  module-default homes and existing passwd homes, non-directory homes, and
+  symlink-safe SSH, sudoers-parent, and home path handling.
 
 All five scenarios run on every image listed in the matrix. No scenario currently
 covers Debian, Ubuntu 24.04,
@@ -95,6 +100,20 @@ Run an individual scenario with `molecule test -s <scenario>`, for example
 `molecule test -s validation`. Destructive scenarios must run only in their
 disposable Molecule containers.
 
+## Completed Shared Podman Verification
+
+The shared Ansible testing environment completed all five scenarios—`validation`,
+`baseline`, `lifecycle`, `guardrails`, and `all_absent`—with the Podman driver
+against the default Ubuntu 22.04 image
+(`geerlingguy/docker-ubuntu2204-ansible:latest`). This verifies the scenarios on
+that environment only; it does not establish that the other images in the
+matrix passed, or replace the CI matrix coverage.
+
+The runs emitted non-blocking warnings about a duplicate collection,
+Ansible/Molecule deprecations, and missing optional Molecule files. None of
+these warnings caused a scenario failure. The warnings do not expand the
+documented platform or version coverage.
+
 ## CI Execution
 
 The GitHub Actions workflow runs on every push and pull request. It executes
@@ -119,9 +138,14 @@ CI coverage.
 ## Limitations And Coverage Gaps
 
 - The test image uses the mutable `latest` tag and is not digest-pinned.
+- GitHub Actions references use major tags and are also mutable; CI is not a
+  fully digest-pinned supply-chain boundary.
 - Functional coverage does not exercise Debian, Ubuntu 24.04, or EL 8.
 - There is no multi-host, cluster, replication, upgrade, or application-version
   matrix because this role manages local identities only.
 - Check-mode behavior beyond the tested present and destructive paths follows
   the capabilities and limitations of the Ansible user, group, file, and
   authorized-key modules.
+- The completed shared Podman verification covered only the default Ubuntu
+  22.04 image. The other matrix images require separate execution and are not
+  claimed as locally verified here.

@@ -36,6 +36,214 @@
       ansible.builtin.assert:
         that: "'guardrail_user' in getent_passwd"
 
+    - name: Create a non-directory home fixture
+      ansible.builtin.copy:
+        dest: /tmp/local_identity_home_file
+        content: "not a home directory\n"
+        mode: '0600'
+
+    - name: Reject an existing non-directory home
+      block:
+        - name: Run non-directory home blueprint
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: present
+                users:
+                  - name: non_directory_home_user
+                    home: /tmp/local_identity_home_file
+        - name: Record unexpected non-directory home success
+          ansible.builtin.set_fact:
+            local_identity_home_type_guardrail_role: {failed: false}
+      rescue:
+        - name: Record non-directory home guardrail error
+          ansible.builtin.set_fact:
+            local_identity_home_type_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert non-directory home was rejected before mutation
+      ansible.builtin.assert:
+        that:
+          - local_identity_home_type_guardrail_role.failed | default(false)
+          - >-
+            (local_identity_home_type_guardrail_role.result | default('')) is
+            search('existing home must be a directory')
+
+    - name: Create a symlinked home parent fixture
+      tags: [molecule-idempotence-notest]
+      block:
+        - name: Create the real home parent fixture
+          ansible.builtin.file:
+            path: /tmp/local_identity_real_parent
+            state: directory
+            mode: '0755'
+        - name: Create the symlinked home parent fixture
+          ansible.builtin.file:
+            src: /tmp/local_identity_real_parent
+            dest: /tmp/local_identity_link_parent
+            state: link
+
+    - name: Reject a symlinked home parent
+      block:
+        - name: Run symlinked home blueprint
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: present
+                users:
+                  - name: symlinked_home_user
+                    home: /tmp/local_identity_link_parent/home
+        - name: Record unexpected symlinked home success
+          ansible.builtin.set_fact:
+            local_identity_home_path_guardrail_role: {failed: false}
+      rescue:
+        - name: Record symlinked home guardrail error
+          ansible.builtin.set_fact:
+            local_identity_home_path_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert symlinked home parent was rejected
+      ansible.builtin.assert:
+        that:
+          - local_identity_home_path_guardrail_role.failed | default(false)
+          - >-
+            (local_identity_home_path_guardrail_role.result | default('')) is
+            search('parent path component is a symlink')
+
+    - name: Create a local user with a symlinked removal-home parent
+      ansible.builtin.user:
+        name: absent_symlink_home_user
+        home: /tmp/local_identity_link_parent/absent_symlink_home_user
+        create_home: false
+    - name: Create the symlinked removal-home target
+      ansible.builtin.file:
+        path: /tmp/local_identity_real_parent/absent_symlink_home_user
+        state: directory
+        owner: absent_symlink_home_user
+        group: absent_symlink_home_user
+        mode: '0700'
+    - name: Create the removal-home marker through the symlinked parent
+      ansible.builtin.copy:
+        dest: /tmp/local_identity_real_parent/absent_symlink_home_user/.ansible-iac-role-local-identity-managed
+        content: "Managed by ansible-iac-role-local-identity; do not remove.\n"
+        owner: absent_symlink_home_user
+        group: absent_symlink_home_user
+        mode: '0600'
+
+    - name: Reject a symlinked parent during absent home removal
+      block:
+        - name: Run absent against the symlinked home parent
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: absent
+                allow_user_deletion: true
+                allow_home_removal: true
+                users:
+                  - name: absent_symlink_home_user
+                    home: /tmp/local_identity_link_parent/absent_symlink_home_user
+                    remove_home: true
+        - name: Record unexpected symlinked absent-home success
+          ansible.builtin.set_fact:
+            local_identity_absent_home_path_guardrail_role: {failed: false}
+      rescue:
+        - name: Record symlinked absent-home guardrail error
+          ansible.builtin.set_fact:
+            local_identity_absent_home_path_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert symlinked absent-home parent was rejected before marker checks
+      ansible.builtin.assert:
+        that:
+          - local_identity_absent_home_path_guardrail_role.failed | default(false)
+          - >-
+            (local_identity_absent_home_path_guardrail_role.result | default('')) is
+            search('parent path component is a symlink')
+    - name: Confirm symlinked absent-home rejection preserved the user
+      ansible.builtin.getent:
+        database: passwd
+        key: absent_symlink_home_user
+      register: absent_symlink_home_user_lookup
+    - name: Assert symlinked absent-home rejection made no user mutation
+      ansible.builtin.assert:
+        that: "'absent_symlink_home_user' in absent_symlink_home_user_lookup.ansible_facts.getent_passwd"
+
+    - name: Create a symlinked SSH parent fixture
+      ansible.builtin.file:
+        src: /tmp/local_identity_real_parent
+        dest: /tmp/local_identity_link_parent_ssh
+        state: link
+      tags: [molecule-idempotence-notest]
+
+    - name: Reject a symlinked SSH parent
+      block:
+        - name: Run symlinked SSH blueprint
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: present
+                users:
+                  - name: ssh_symlink_user
+                    home: /tmp/local_identity_link_parent_ssh/home
+                    authorized_keys: ["ssh-ed25519 AAAA test-key"]
+        - name: Record unexpected symlinked SSH success
+          ansible.builtin.set_fact:
+            local_identity_ssh_path_guardrail_role: {failed: false}
+      rescue:
+        - name: Record symlinked SSH guardrail error
+          ansible.builtin.set_fact:
+            local_identity_ssh_path_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert symlinked SSH parent was rejected
+      ansible.builtin.assert:
+        that:
+          - local_identity_ssh_path_guardrail_role.failed | default(false)
+          - (local_identity_ssh_path_guardrail_role.result | default('')) is search('parent path component is a symlink')
+
+    - name: Create a symlinked sudoers parent fixture
+      ansible.builtin.file:
+        src: /tmp/local_identity_real_parent
+        dest: /tmp/local_identity_link_parent_sudoers
+        state: link
+      tags: [molecule-idempotence-notest]
+
+    - name: Reject a symlinked sudoers parent
+      block:
+        - name: Run symlinked sudoers blueprint
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: present
+                sudoers_dir: /tmp/local_identity_link_parent_sudoers/sudoers
+                users:
+                  - name: sudoers_symlink_user
+                    sudo_rules: ["sudoers_symlink_user ALL=(root) /usr/bin/true"]
+        - name: Record unexpected symlinked sudoers success
+          ansible.builtin.set_fact:
+            local_identity_sudoers_path_guardrail_role: {failed: false}
+      rescue:
+        - name: Record symlinked sudoers guardrail error
+          ansible.builtin.set_fact:
+            local_identity_sudoers_path_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert symlinked sudoers parent was rejected
+      ansible.builtin.assert:
+        that:
+          - local_identity_sudoers_path_guardrail_role.failed | default(false)
+          - (local_identity_sudoers_path_guardrail_role.result | default('')) is search('parent path component is a symlink')
+
     - name: Reject deletion without explicit opt-in
       block:
         - name: Run deletion with its safety flag disabled
@@ -363,6 +571,11 @@
             iac_blueprint:
               local_identity:
                 state: present
+                # Reset the role's normalized path after the dedicated
+                # symlink-parent test.  Repeated role includes share host
+                # facts, so later present-state failures must declare their own
+                # independent sudoers target.
+                sudoers_dir: /etc/sudoers.d
                 users:
                   - name: exact_header_unmanaged
                     sudo_rules:
@@ -387,7 +600,9 @@
           - >-
             (local_identity_sudoers_metadata_guardrail_role.result |
             default('')) is search('unmanaged sudoers file')
-        fail_msg: Exact-header sudoers file with unsafe metadata was accepted.
+        fail_msg: >-
+          Sudoers management with unsafe metadata was accepted or failed for the
+          wrong reason.
 
     - name: Reject removal of a home without its role-managed marker
       block:
@@ -471,6 +686,9 @@
             iac_blueprint:
               local_identity:
                 state: present
+                # Keep this failure independent from the preceding custom
+                # sudoers path guardrail.
+                sudoers_dir: /etc/sudoers.d
                 users:
                   - name: gid_conflict_user
                     gid: 1701
@@ -493,3 +711,172 @@
             (local_identity_gid_conflict_role.result | default('')) is
             search('different GID')
         fail_msg: Conflicting primary group GID was not rejected.
+
+    - name: Discover a remote-only NSS user when the image provides one
+      ansible.builtin.command: getent passwd
+      register: local_identity_all_nss_names
+      changed_when: false
+      check_mode: false
+    - name: Discover local-files NSS users
+      ansible.builtin.command: getent -s files passwd
+      register: local_identity_files_nss_entries
+      changed_when: false
+      check_mode: false
+    - name: Select a remote-only NSS user for the rejection test
+      ansible.builtin.set_fact:
+        local_identity_remote_only_user: >-
+          {{ (local_identity_all_nss_names.stdout_lines |
+          map('regex_replace', ':.*$', '') | list |
+          difference(local_identity_files_nss_entries.stdout_lines |
+          map('split', ':') | map('first') | list) | list | first) |
+          default('') }}
+    - name: Reject remote-only NSS management even when compatibility flag is false
+      when: local_identity_remote_only_user | length > 0
+      tags: [molecule-idempotence-notest]
+      block:
+        - name: Run remote-only NSS blueprint
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: present
+                require_local_nss: false
+                sudoers_dir: /etc/sudoers.d
+                users:
+                  - name: "{{ local_identity_remote_only_user }}"
+        - name: Record unexpected remote-only NSS success
+          ansible.builtin.set_fact:
+            local_identity_remote_nss_guardrail_role: {failed: false}
+      rescue:
+        - name: Record remote-only NSS guardrail error
+          ansible.builtin.set_fact:
+            local_identity_remote_nss_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert remote-only NSS management was rejected when available
+      ansible.builtin.assert:
+        that:
+          - local_identity_remote_only_user | length == 0 or local_identity_remote_nss_guardrail_role.failed | default(false)
+          - >-
+            local_identity_remote_only_user | length == 0 or
+            (local_identity_remote_nss_guardrail_role.result | default('')) is
+            search('not the local files database')
+
+    - name: Reject remote-only NSS removal in absent state
+      when: local_identity_remote_only_user | length > 0
+      tags: [molecule-idempotence-notest]
+      block:
+        - name: Run remote-only NSS absent blueprint
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: absent
+                require_local_nss: false
+                allow_user_deletion: true
+                users:
+                  - name: "{{ local_identity_remote_only_user }}"
+        - name: Record unexpected remote-only NSS absent success
+          ansible.builtin.set_fact:
+            local_identity_remote_absent_nss_guardrail_role: {failed: false}
+      rescue:
+        - name: Record remote-only NSS absent guardrail error
+          ansible.builtin.set_fact:
+            local_identity_remote_absent_nss_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert remote-only NSS absent removal was rejected when available
+      ansible.builtin.assert:
+        that:
+          - local_identity_remote_only_user | length == 0 or local_identity_remote_absent_nss_guardrail_role.failed | default(false)
+          - >-
+            local_identity_remote_only_user | length == 0 or
+            (local_identity_remote_absent_nss_guardrail_role.result | default('')) is
+            search('not the local files database')
+
+    - name: Reject remote-only NSS removal in all_absent state
+      when: local_identity_remote_only_user | length > 0
+      tags: [molecule-idempotence-notest]
+      block:
+        - name: Run remote-only NSS all_absent blueprint
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: all_absent
+                require_local_nss: false
+                allow_all_absent: true
+                allow_user_deletion: true
+                users:
+                  - name: "{{ local_identity_remote_only_user }}"
+        - name: Record unexpected remote-only NSS all_absent success
+          ansible.builtin.set_fact:
+            local_identity_remote_all_absent_nss_guardrail_role: {failed: false}
+      rescue:
+        - name: Record remote-only NSS all_absent guardrail error
+          ansible.builtin.set_fact:
+            local_identity_remote_all_absent_nss_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert remote-only NSS all_absent removal was rejected when available
+      ansible.builtin.assert:
+        that:
+          - local_identity_remote_only_user | length == 0 or local_identity_remote_all_absent_nss_guardrail_role.failed | default(false)
+          - >-
+            local_identity_remote_only_user | length == 0 or
+            (local_identity_remote_all_absent_nss_guardrail_role.result | default('')) is
+            search('not the local files database')
+
+    - name: Discover a remote-only NSS group when the image provides one
+      ansible.builtin.command: getent group
+      register: local_identity_all_nss_groups
+      changed_when: false
+      check_mode: false
+    - name: Discover local-files NSS groups
+      ansible.builtin.command: getent -s files group
+      register: local_identity_files_nss_groups
+      changed_when: false
+      check_mode: false
+    - name: Select a remote-only NSS group for the rejection test
+      ansible.builtin.set_fact:
+        local_identity_remote_only_group: >-
+          {{ (local_identity_all_nss_groups.stdout_lines |
+          map('regex_replace', ':.*$', '') | list |
+          difference(local_identity_files_nss_groups.stdout_lines |
+          map('split', ':') | map('first') | list) | list | first) |
+          default('') }}
+    - name: Reject a declared group colliding with a remote-only NSS group
+      when: local_identity_remote_only_group | length > 0
+      tags: [molecule-idempotence-notest]
+      block:
+        - name: Run remote-only NSS group blueprint
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: present
+                sudoers_dir: /etc/sudoers.d
+                groups:
+                  - name: "{{ local_identity_remote_only_group }}"
+                users: []
+        - name: Record unexpected remote-only group success
+          ansible.builtin.set_fact:
+            local_identity_remote_group_guardrail_role: {failed: false}
+      rescue:
+        - name: Record remote-only group guardrail error
+          ansible.builtin.set_fact:
+            local_identity_remote_group_guardrail_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert remote-only group management was rejected when available
+      ansible.builtin.assert:
+        that:
+          - local_identity_remote_only_group | length == 0 or local_identity_remote_group_guardrail_role.failed | default(false)
+          - >-
+            local_identity_remote_only_group | length == 0 or
+            (local_identity_remote_group_guardrail_role.result | default('')) is
+            search('not the local files database')

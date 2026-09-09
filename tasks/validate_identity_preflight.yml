@@ -1,0 +1,266 @@
+---
+- name: Read local passwd entries before numeric identity changes
+  ansible.builtin.getent:
+    database: passwd
+    fail_key: false
+    service: "files"
+  register: local_identity_passwd_preflight
+  check_mode: false
+
+- name: Resolve the effective home for every managed user
+  ansible.builtin.set_fact:
+    local_identity_effective_homes: >-
+      {{ local_identity_effective_homes | default({}) | combine({
+      local_identity_effective_home_user.name:
+      (local_identity_effective_home_user.home
+      if local_identity_effective_home_user.home is defined
+      else (((local_identity_passwd_preflight.ansible_facts.getent_passwd | default({})).get(local_identity_effective_home_user.name)[4])
+      if local_identity_effective_home_user.name in (local_identity_passwd_preflight.ansible_facts.getent_passwd | default({}))
+      else '/home/' ~ local_identity_effective_home_user.name)) }) }}
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_effective_home_user
+
+- name: Initialize users with effective homes
+  ansible.builtin.set_fact:
+    local_identity_users_with_effective_home: []
+
+- name: Add effective homes to normalized user records
+  ansible.builtin.set_fact:
+    local_identity_users_with_effective_home: >-
+      {{ local_identity_users_with_effective_home +
+      [local_identity_effective_record | combine({'effective_home':
+      local_identity_effective_homes[local_identity_effective_record.name]})] }}
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_effective_record
+
+- name: Use normalized users with effective homes
+  ansible.builtin.set_fact:
+    local_identity_normalized_users: "{{ local_identity_users_with_effective_home }}"
+
+- name: Inspect declared homes before any user mutation
+  ansible.builtin.stat:
+    path: "{{ local_identity_home_user.effective_home }}"
+    follow: false
+  register: local_identity_home_preflight_stats
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_home_user
+
+- name: Reject existing non-directory homes
+  ansible.builtin.assert:
+    that:
+      - not (local_identity_home_stat.stat.exists | default(false) | bool) or
+        (local_identity_home_stat.stat.isdir | default(false) | bool)
+    fail_msg: >-
+      Refusing to manage home {{ local_identity_home_stat.local_identity_home_user.effective_home }}:
+      an existing home must be a directory, not a file or symlink.
+  loop: "{{ local_identity_home_preflight_stats.results }}"
+  loop_control:
+    loop_var: local_identity_home_stat
+
+- name: Resolve declared homes without following symlinked parents
+  ansible.builtin.command:
+    argv: ["realpath", "-m", "--", "{{ local_identity_home_user.effective_home }}"]
+  register: local_identity_home_resolved_paths
+  changed_when: false
+  check_mode: false
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_home_user
+
+- name: Reject symlinked parent components in home paths
+  ansible.builtin.assert:
+    that:
+      - local_identity_home_resolved_path.stdout == local_identity_home_resolved_path.local_identity_home_user.effective_home
+    fail_msg: >-
+      Refusing home management because a parent path component is a symlink:
+      {{ local_identity_home_resolved_path.local_identity_home_user.effective_home }}.
+  loop: "{{ local_identity_home_resolved_paths.results }}"
+  loop_control:
+    loop_var: local_identity_home_resolved_path
+
+- name: Refuse existing UID or primary GID drift without explicit opt-in
+  ansible.builtin.assert:
+    that:
+      - >-
+        local_identity_user_preflight.allow_uid_gid_change | bool or
+        local_identity_existing_user | length == 0 or
+        (local_identity_user_preflight.uid is not defined or
+        (local_identity_existing_user[1] | int) == (local_identity_user_preflight.uid | int))
+      - >-
+        local_identity_user_preflight.allow_uid_gid_change | bool or
+        local_identity_existing_user | length == 0 or
+        (local_identity_user_preflight.gid is not defined or
+        (local_identity_existing_user[2] | int) == (local_identity_user_preflight.gid | int))
+    fail_msg: >-
+      Refusing UID or primary GID migration for {{ local_identity_user_preflight.name }};
+      set allow_uid_gid_change: true only after reviewing ownership and NSS impact.
+  vars:
+    local_identity_existing_user: >-
+      {{ (local_identity_passwd_preflight.ansible_facts.getent_passwd | default({})).get(local_identity_user_preflight.name) | default([], true) }}
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_user_preflight
+    label: "{{ local_identity_user_preflight.name }}"
+
+- name: Check that managed users are not remote-only NSS identities
+  ansible.builtin.command:
+    argv: ["getent", "passwd", "{{ local_identity_nss_user.name }}"]
+  register: local_identity_nss_users
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_nss_user
+
+- name: Check managed users against the local files NSS database
+  ansible.builtin.command:
+    argv: ["getent", "-s", "files", "passwd", "{{ local_identity_nss_user.name }}"]
+  register: local_identity_files_nss_users
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_nss_user
+
+- name: Reject remote-only managed users
+  ansible.builtin.assert:
+    that:
+      - >-
+        local_identity_nss_users.results[local_identity_nss_index].rc != 0 or
+        local_identity_files_nss_users.results[local_identity_nss_index].rc == 0
+    fail_msg: >-
+      Refusing to manage {{ local_identity_normalized_users[local_identity_nss_index].name }}:
+      it resolves through NSS but not the local files database.
+  loop: "{{ range(0, local_identity_normalized_users | length) | list }}"
+  loop_control:
+    loop_var: local_identity_nss_index
+
+- name: Read local group entries before GID changes
+  ansible.builtin.getent:
+    database: group
+    fail_key: false
+    service: "files"
+  register: local_identity_group_preflight
+  check_mode: false
+
+- name: Refuse existing group GID drift without explicit opt-in
+  ansible.builtin.assert:
+    that:
+      - >-
+        local_identity_group_preflight_record.allow_gid_change | bool or
+        local_identity_existing_group | length == 0 or
+        (local_identity_group_preflight_record.gid is not defined or
+        (local_identity_existing_group[1] | int) ==
+        (local_identity_group_preflight_record.gid | int))
+    fail_msg: >-
+      Refusing GID migration for {{ local_identity_group_preflight_record.name }};
+      set allow_gid_change: true only after reviewing ownership and NSS impact.
+  vars:
+    local_identity_existing_group: >-
+      {{ (local_identity_group_preflight.ansible_facts.getent_group | default({})).get(local_identity_group_preflight_record.name) | default([], true) }}
+  loop: "{{ local_identity_normalized_groups }}"
+  loop_control:
+    loop_var: local_identity_group_preflight_record
+    label: "{{ local_identity_group_preflight_record.name }}"
+
+- name: Reject a UID already owned by another local user
+  ansible.builtin.assert:
+    that:
+      - local_identity_user_gid_collision | length == 0
+    fail_msg: >-
+      Refusing UID {{ local_identity_uid_collision_user['uid'] | default('unset', true) }} for
+      {{ local_identity_uid_collision_user['name'] | default('unnamed', true) }}:
+      it is already assigned to another local user.
+  vars:
+    local_identity_user_gid_collision: >-
+      {{ (((local_identity_passwd_preflight['ansible_facts'] | default({}))['getent_passwd'] | default({})) | dict2items |
+      selectattr('value.1', 'equalto', (local_identity_uid_collision_user['uid'] | string)) |
+      rejectattr('key', 'equalto', local_identity_uid_collision_user['name']) | list) if
+      local_identity_uid_collision_user['uid'] is defined and
+      local_identity_uid_collision_user['name'] is defined else [] }}
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_uid_collision_user
+    label: "{{ local_identity_uid_collision_user.name }}"
+
+- name: Reject a GID already owned by another declared local group
+  ansible.builtin.assert:
+    that:
+      - local_identity_group_gid_collision | length == 0
+    fail_msg: >-
+      Refusing GID {{ local_identity_group_preflight_record.gid }} for
+      {{ local_identity_group_preflight_record.name }}: it is already assigned
+      to another local group.
+  vars:
+    local_identity_group_gid_collision: >-
+      {{ (local_identity_group_preflight.ansible_facts.getent_group | default({}) | dict2items |
+      selectattr('value.1', 'equalto', (local_identity_group_preflight_record.gid | string)) |
+      rejectattr('key', 'equalto', local_identity_group_preflight_record.name) | list) if
+      local_identity_group_preflight_record.gid is defined else [] }}
+  loop: "{{ local_identity_normalized_groups }}"
+  loop_control:
+    loop_var: local_identity_group_preflight_record
+    label: "{{ local_identity_group_preflight_record.name }}"
+
+- name: Read local supplementary groups for identity isolation
+  ansible.builtin.getent:
+    database: group
+    fail_key: false
+    service: "files"
+  register: local_identity_supplementary_groups
+  check_mode: false
+
+- name: Validate supplementary groups for each managed user
+  ansible.builtin.include_tasks: validate_supplementary_groups.yml
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_user_preflight
+    label: "{{ local_identity_user_preflight.name }}"
+
+- name: Build the referenced group name set
+  ansible.builtin.set_fact:
+    local_identity_referenced_group_names: >-
+      {{ (local_identity_normalized_groups | map(attribute='name') | list +
+      (local_identity_normalized_users | map(attribute='groups') | flatten | list)) | unique }}
+
+- name: Check all referenced groups through normal NSS
+  ansible.builtin.command:
+    argv: ["getent", "group", "{{ local_identity_nss_group_name }}"]
+  register: local_identity_nss_groups
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  loop: "{{ local_identity_referenced_group_names }}"
+  loop_control:
+    loop_var: local_identity_nss_group_name
+
+- name: Check all referenced groups through the local files NSS database
+  ansible.builtin.command:
+    argv: ["getent", "-s", "files", "group", "{{ local_identity_nss_group_name }}"]
+  register: local_identity_files_nss_groups
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  loop: "{{ local_identity_referenced_group_names }}"
+  loop_control:
+    loop_var: local_identity_nss_group_name
+
+- name: Reject remote-only managed groups
+  ansible.builtin.assert:
+    that:
+      - >-
+        local_identity_nss_groups.results[local_identity_nss_group_index].rc != 0 or
+        local_identity_files_nss_groups.results[local_identity_nss_group_index].rc == 0
+    fail_msg: >-
+      Refusing to manage group {{ local_identity_nss_group_names[local_identity_nss_group_index] }}:
+      it resolves through NSS but not the local files database.
+  vars:
+    local_identity_nss_group_names: "{{ local_identity_referenced_group_names }}"
+  loop: "{{ range(0, local_identity_nss_group_names | length) | list }}"
+  loop_control:
+    loop_var: local_identity_nss_group_index

@@ -30,6 +30,17 @@
         path: /home/baseline_reuse_user
         state: absent
 
+    - name: Ensure the implicit-home fixture account is absent
+      ansible.builtin.user:
+        name: baseline_implicit_user
+        state: absent
+        remove: false
+
+    - name: Ensure the implicit-home fixture home is absent
+      ansible.builtin.file:
+        path: /home/baseline_implicit_user
+        state: absent
+
     - name: Create the existing-home fixture
       ansible.builtin.file:
         path: /home/baseline_existing_user
@@ -37,3 +48,16 @@
         owner: root
         group: root
         mode: '0755'
+
+    - name: Create a supplementary group for empty-list replacement coverage
+      ansible.builtin.group:
+        name: baseline_extra
+        state: present
+
+    - name: Create the existing-home user fixture with an extra group
+      ansible.builtin.user:
+        name: baseline_existing_user
+        home: /home/baseline_existing_user
+        groups: baseline_extra
+        append: true
+        create_home: false

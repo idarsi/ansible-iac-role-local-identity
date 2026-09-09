@@ -1,14 +1,14 @@
 ---
 - name: Inspect the declared home before user creation
   ansible.builtin.stat:
-    path: "{{ local_identity_user_record.home }}"
+    path: "{{ local_identity_user_record.effective_home }}"
     follow: false
   register: local_identity_home_before_user
-  when: local_identity_user_record.home is defined
 
 - name: Read groups when a primary group ID is requested
   ansible.builtin.getent:
     database: group
+    service: "files"
   register: local_identity_group_lookup
   when: local_identity_user_record.gid is defined
   check_mode: false
@@ -56,10 +56,10 @@
     state: present
     uid: "{{ local_identity_user_record.uid | default(omit) }}"
     group: "{{ local_identity_primary_group_name | default(omit) }}"
-    groups: "{{ local_identity_user_record.groups | join(',') if local_identity_user_record.groups else omit }}"
+    groups: "{{ local_identity_user_record.groups | join(',') if local_identity_user_record.groups_declared else omit }}"
     append: >-
-      {{ local_identity_user_record.append | default(true)
-      if local_identity_user_record.groups | length > 0 else omit }}
+      {{ local_identity_user_record.append | default(local_identity_user_record.groups | length > 0)
+      if local_identity_user_record.groups_declared else omit }}
     shell: "{{ local_identity_user_record.shell }}"
     home: "{{ local_identity_user_record.home | default(omit) }}"
     create_home: "{{ local_identity_user_record.create_home }}"
@@ -69,7 +69,7 @@
 - name: Mark a home created by this role
   ansible.builtin.copy:
     content: "{{ local_identity_home_marker_text }}\n"
-    dest: "{{ local_identity_user_record.home }}/{{ local_identity_home_removal_marker }}"
+    dest: "{{ local_identity_user_record.effective_home }}/{{ local_identity_home_removal_marker }}"
     owner: "{{ local_identity_user_record.name }}"
     mode: '0600'
     force: false
@@ -81,14 +81,43 @@
     - not (local_identity_home_before_user.stat.exists | default(false) | bool)
 
 - name: Install declared authorized keys
-  ansible.posix.authorized_key:
-    user: "{{ local_identity_user_record.name }}"
-    key: "{{ local_identity_user_record.authorized_keys | join('\n') }}"
-    exclusive: "{{ local_identity_user_record.authorized_keys_exclusive }}"
-    manage_dir: true
   when:
     - local_identity_user_record.authorized_keys | length > 0 or local_identity_user_record.authorized_keys_exclusive | bool
+  block:
+    - name: Inspect the SSH directory without following symlinks
+      ansible.builtin.stat:
+        path: "{{ local_identity_user_record.effective_home }}/.ssh"
+        follow: false
+      register: local_identity_ssh_dir_stat
 
+    - name: Refuse SSH directory symlink traversal
+      ansible.builtin.assert:
+        that:
+          - not (local_identity_ssh_dir_stat.stat.islnk | default(false) | bool)
+          - not (local_identity_ssh_dir_stat.stat.exists | default(false) | bool) or
+            (local_identity_ssh_dir_stat.stat.isdir | default(false) | bool)
+        fail_msg: Refusing to follow a symlink or non-directory SSH directory.
+
+    - name: Inspect authorized_keys without following symlinks
+      ansible.builtin.stat:
+        path: "{{ local_identity_user_record.effective_home }}/.ssh/authorized_keys"
+        follow: false
+      register: local_identity_authorized_keys_stat
+
+    - name: Refuse authorized_keys symlink traversal
+      ansible.builtin.assert:
+        that:
+          - not (local_identity_authorized_keys_stat.stat.islnk | default(false) | bool)
+          - not (local_identity_authorized_keys_stat.stat.exists | default(false) | bool) or
+            (local_identity_authorized_keys_stat.stat.isreg | default(false) | bool)
+        fail_msg: Refusing to follow a symlink or non-regular authorized_keys file.
+
+    - name: Install declared authorized keys safely
+      ansible.posix.authorized_key:
+        user: "{{ local_identity_user_record.name }}"
+        key: "{{ local_identity_user_record.authorized_keys | join('\n') }}"
+        exclusive: "{{ local_identity_user_record.authorized_keys_exclusive }}"
+        manage_dir: true
 - name: Render user sudoers rule file
   ansible.builtin.file:
     path: "{{ local_identity_sudoers_dir }}"

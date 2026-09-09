@@ -4,6 +4,7 @@
     database: group
     key: "{{ local_identity_group_record.name }}"
     fail_key: false
+    service: "files"
   register: local_identity_group_lookup
   check_mode: false
 
@@ -39,6 +40,7 @@
   ansible.builtin.getent:
     database: passwd
     fail_key: false
+    service: "files"
   register: local_identity_passwd_lookup
   check_mode: false
 

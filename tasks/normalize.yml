@@ -28,6 +28,7 @@
   vars:
     local_identity_group_defaults:
       system: false
+      allow_gid_change: false
 
 - name: Normalize local_identity users
   ansible.builtin.set_fact:
@@ -46,3 +47,5 @@
       create_home: true
       remove_home: false
       authorized_keys_exclusive: "{{ local_identity_input.authorized_keys_exclusive | default(local_identity_authorized_keys_exclusive) }}"
+      groups_declared: "{{ 'groups' in local_identity_user }}"
+      allow_uid_gid_change: false

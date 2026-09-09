@@ -31,6 +31,7 @@
       - local_identity_input.authorized_keys_exclusive is not defined or local_identity_input.authorized_keys_exclusive is boolean
       - local_identity_input.sudoers_dir is not defined or local_identity_input.sudoers_dir is string
       - local_identity_input.sudoers_mode is not defined or local_identity_input.sudoers_mode is string
+      - local_identity_input.require_local_nss is not defined or local_identity_input.require_local_nss is boolean
     fail_msg: local_identity.state must be validate/present/absent/all_absent; users must be a list; groups, when supplied, must be a list.
 
 - name: Validate local group records
@@ -50,6 +51,7 @@
         integer and local_identity_group.gid is not boolean and
         local_identity_group.gid > 0 and local_identity_group.gid <= 2147483647)
       - local_identity_group.system is not defined or local_identity_group.system is boolean
+      - local_identity_group.allow_gid_change is not defined or local_identity_group.allow_gid_change is boolean
       - >-
         local_identity_group.gid is not defined or (local_identity_input.groups |
         default([]) | selectattr('gid', 'defined') | selectattr('gid', 'equalto',
@@ -112,6 +114,7 @@
       - local_identity_user.create_home is not defined or local_identity_user.create_home is boolean
       - local_identity_user.append is not defined or local_identity_user.append is boolean
       - local_identity_user.password_lock is not defined or local_identity_user.password_lock is boolean
+      - local_identity_user.allow_uid_gid_change is not defined or local_identity_user.allow_uid_gid_change is boolean
       - local_identity_user.allow_unrestricted_sudo is not defined or local_identity_user.allow_unrestricted_sudo is boolean
       - (local_identity_user.remove_home | default(false) | bool) == false or local_identity_user.home is defined
       - >-

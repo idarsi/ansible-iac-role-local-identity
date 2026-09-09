@@ -10,6 +10,10 @@ local_identity_authorized_keys_exclusive: false
 local_identity_sudoers_dir: /etc/sudoers.d
 local_identity_sudoers_file_mode: '0440'
 local_identity_sudoers_marker: '# Managed by ansible role local_identity.'
+# Remote-only identities are always rejected. The public require_local_nss
+# setting is retained and ignored for backward compatibility; enforcement is
+# unconditional because the user/group modules have no local-NSS selector.
+local_identity_require_local_nss: true
 
 # Source of truth for the platform check in tasks/main.yml.
 iac_supported_os:

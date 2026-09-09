@@ -92,6 +92,18 @@
                 sudo_rules:
                   - "opted_in_sudo_user ALL=(root) /bin/true, ALL # explicitly opted in"
 
+    - name: Accept uppercase sudo command arguments and comments
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: validate
+            users:
+              - name: uppercase_sudo_argument
+                sudo_rules:
+                  - "uppercase_sudo_argument ALL=(root) /usr/bin/echo ALL # a comment containing ALL"
+
     - name: Reject an unsafe Linux group name
       block:
         - name: Run the invalid group blueprint
@@ -187,7 +199,38 @@
             search('Values in authorized_keys and sudo_rules must be single-line strings.')
         fail_msg: Invalid authorized_keys input was accepted or failed for the wrong reason.
 
-    - name: Reject unsafe unrestricted sudo syntax
+    - name: Reject an authorized key without a base64 key blob
+      block:
+        - name: Run the malformed key blueprint
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."
+          vars:
+            iac_blueprint:
+              local_identity:
+                state: validate
+                users:
+                  - name: malformed_key_user
+                    authorized_keys: ["ssh-ed25519 not-base64!"]
+        - name: Record unexpected malformed key success
+          ansible.builtin.set_fact:
+            local_identity_malformed_key_role:
+              failed: false
+      rescue:
+        - name: Record malformed key validation failure
+          ansible.builtin.set_fact:
+            local_identity_malformed_key_role:
+              failed: true
+              result: "{{ ansible_failed_result | to_nice_json }}"
+    - name: Assert malformed authorized key was rejected
+      ansible.builtin.assert:
+        that:
+          - local_identity_malformed_key_role.failed | default(false)
+          - >-
+            (local_identity_malformed_key_role.result | default('')) is
+            search('Authorized keys must be one plain OpenSSH public-key line')
+        fail_msg: Malformed authorized key was accepted.
+
+    - name: Reject unrestricted sudo after a run-as specification
       block:
         - name: Run the unsafe blueprint
           ansible.builtin.include_role:
@@ -232,6 +275,7 @@
                   - name: invalid_sudo_variants
                     sudo_rules:
                       - "invalid_sudo_variants ALL=(root) /bin/true,  ALL   # comment"
+                      - "invalid_sudo_variants ALL=(#0) /bin/true"
         - name: Record unexpected successful validation
           ansible.builtin.set_fact:
             local_identity_invalid_sudo_variants_role:

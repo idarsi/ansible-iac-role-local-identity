@@ -48,9 +48,44 @@
       ansible.builtin.getent:
         database: passwd
         key: baseline_user
+      register: baseline_user_lookup
     - name: Assert the baseline fixture user exists
       ansible.builtin.assert:
-        that: "'baseline_user' in getent_passwd"
+        that: "'baseline_user' in baseline_user_lookup.ansible_facts.getent_passwd"
+
+    - name: Look up the existing-home fixture user
+      ansible.builtin.getent:
+        database: passwd
+        key: baseline_existing_user
+      register: baseline_existing_user_lookup
+
+    - name: Look up the implicit-home fixture user
+      ansible.builtin.getent:
+        database: passwd
+        key: baseline_implicit_user
+      register: baseline_implicit_user_lookup
+
+    - name: Assert omitted home uses the existing passwd home
+      ansible.builtin.assert:
+        that:
+          - >-
+            baseline_existing_user_lookup.ansible_facts.getent_passwd
+            .baseline_existing_user[4] == '/home/baseline_existing_user'
+
+    - name: Assert omitted home uses the module default for a new user
+      ansible.builtin.assert:
+        that:
+          - >-
+            baseline_implicit_user_lookup.ansible_facts.getent_passwd
+            .baseline_implicit_user[4] == '/home/baseline_implicit_user'
+
+    - name: Read the extra group membership after empty-list replacement
+      ansible.builtin.getent:
+        database: group
+        key: baseline_extra
+    - name: Assert an explicitly empty groups list replaces membership
+      ansible.builtin.assert:
+        that: "'baseline_existing_user' not in (getent_group.baseline_extra[2] | default('')).split(',')"
 
     - name: Look up the declared supplementary group
       ansible.builtin.getent:

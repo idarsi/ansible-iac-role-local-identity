@@ -1,0 +1,64 @@
+---
+- name: Inspect effective home without following symlinks
+  ansible.builtin.stat:
+    path: "{{ local_identity_ssh_user.effective_home }}"
+    follow: false
+  register: local_identity_home_preflight
+  when:
+    - local_identity_ssh_user.authorized_keys | length > 0 or local_identity_ssh_user.authorized_keys_exclusive | bool
+
+- name: Resolve the SSH path without following the final component
+  ansible.builtin.command:
+    argv: ["realpath", "-m", "--", "{{ local_identity_ssh_user.effective_home }}/.ssh/authorized_keys"]
+  register: local_identity_ssh_resolved_path
+  changed_when: false
+  check_mode: false
+  when:
+    - local_identity_ssh_user.authorized_keys | length > 0 or local_identity_ssh_user.authorized_keys_exclusive | bool
+
+- name: Refuse symlinked parent components in SSH paths
+  ansible.builtin.assert:
+    that:
+      - local_identity_ssh_resolved_path.stdout == local_identity_ssh_user.effective_home ~ '/.ssh/authorized_keys'
+    fail_msg: >-
+      Refusing SSH management because a parent path component is a symlink:
+      {{ local_identity_ssh_user.effective_home }}/.ssh/authorized_keys.
+  when:
+    - local_identity_ssh_user.authorized_keys | length > 0 or local_identity_ssh_user.authorized_keys_exclusive | bool
+
+- name: Inspect declared SSH directory without following symlinks
+  ansible.builtin.stat:
+    path: "{{ local_identity_ssh_user.effective_home }}/.ssh"
+    follow: false
+  register: local_identity_ssh_dir_preflight
+  when:
+    - local_identity_ssh_user.authorized_keys | length > 0 or local_identity_ssh_user.authorized_keys_exclusive | bool
+
+- name: Refuse declared home or SSH directory symlink traversal
+  ansible.builtin.assert:
+    that:
+      - not (local_identity_home_preflight.stat.islnk | default(false) | bool)
+      - not (local_identity_ssh_dir_preflight.stat.islnk | default(false) | bool)
+      - not (local_identity_ssh_dir_preflight.stat.exists | default(false) | bool) or
+        (local_identity_ssh_dir_preflight.stat.isdir | default(false) | bool)
+    fail_msg: Refusing to follow a symlink or non-directory identity/SSH path.
+  when:
+    - local_identity_ssh_user.authorized_keys | length > 0 or local_identity_ssh_user.authorized_keys_exclusive | bool
+
+- name: Inspect declared authorized_keys without following symlinks
+  ansible.builtin.stat:
+    path: "{{ local_identity_ssh_user.effective_home }}/.ssh/authorized_keys"
+    follow: false
+  register: local_identity_authorized_keys_preflight
+  when:
+    - local_identity_ssh_user.authorized_keys | length > 0 or local_identity_ssh_user.authorized_keys_exclusive | bool
+
+- name: Refuse authorized_keys symlink traversal before mutation
+  ansible.builtin.assert:
+    that:
+      - not (local_identity_authorized_keys_preflight.stat.islnk | default(false) | bool)
+      - not (local_identity_authorized_keys_preflight.stat.exists | default(false) | bool) or
+        (local_identity_authorized_keys_preflight.stat.isreg | default(false) | bool)
+    fail_msg: Refusing to follow a symlink or non-regular authorized_keys file.
+  when:
+    - local_identity_ssh_user.authorized_keys | length > 0 or local_identity_ssh_user.authorized_keys_exclusive | bool

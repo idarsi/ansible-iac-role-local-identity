@@ -1,3 +1,6 @@
+> **Maturity State: Beta**<br>
+> **RC Readiness: 79%**
+
 # ansible-iac-role-local-identity
 
 ## Overview
@@ -5,7 +8,7 @@
 Declaratively manages local Linux users and selected access controls. The role
 manages users, home directories, SSH authorized keys, and per-user sudoers
 files; it does not install sudo. Declared supplementary groups are assigned to
-users but are not created by the role and must already exist.
+users; groups declared in the same blueprint are created before users.
 
 The public input is an `iac_blueprint`. The role validates the complete
 blueprint, normalizes it, and then applies the requested state.
@@ -151,13 +154,14 @@ Top-level field | Required | Default | Description
 `authorized_keys_exclusive` | No | `false` | Default for users; when true, declared keys replace existing keys, including clearing them with an empty list.
 `sudoers_dir` | No | `/etc/sudoers.d` | Safe absolute directory for per-user sudoers files.
 `sudoers_mode` | No | `0440` | Sudoers file mode; only `0400` and `0440` are accepted.
+`require_local_nss` | No | `true` | Deprecated compatibility setting; ignored. Local-files NSS enforcement is unconditional.
 
 Each user supports these fields:
 
 Field | Required | Default | Description
 ------|----------|---------|-------------
 `name` | Yes | — | Local username.
-`groups` | No | `[]` | Supplementary groups; `append` controls replacement when supplied.
+`groups` | No | `[]` | Supplementary groups; `append` controls replacement when supplied. An explicitly supplied empty list clears supplementary membership by default. Groups must resolve through local `/etc/group` or be declared in the same blueprint; declared groups are created before users.
 `shell` | No | `/bin/bash` | Login shell.
 `home` | No | Module/system default | Explicit home path; required for `remove_home`.
 `comment` | No | Module default | User comment/gecos value.
@@ -165,8 +169,9 @@ Field | Required | Default | Description
 `gid` | No | — | Numeric primary GID; an existing matching group is reused, otherwise a private group named after the user is created.
 `create_home` | No | `true` | Whether to create the home directory.
 `remove_home` | No | `false` | Request removal of the explicitly declared home during a destructive state.
-`append` | No | `true` when groups are declared | Whether supplementary groups are appended or replaced.
+`append` | No | `true` for non-empty declared groups, otherwise `false` | Whether supplementary groups are appended or replaced.
 `password_lock` | No | Module default | Pass-through user password-lock setting.
+`allow_uid_gid_change` | No | `false` | Explicitly permits changing an existing user's requested UID or primary GID after reviewing ownership and NSS impact.
 `authorized_keys` | No | `[]` | SSH public keys to manage.
 `authorized_keys_exclusive` | No | Top-level value (`false`) | Whether declared keys exclusively control the file.
 `allow_unrestricted_sudo` | No | `false` | Explicitly permits unrestricted sudo command specifications containing `ALL`.
@@ -179,6 +184,14 @@ Field | Required | Default | Description
 `name` | Yes | — | Local group name; unique and Linux-safe.
 `gid` | No | Module/system allocation | Positive numeric group ID.
 `system` | No | `false` | Passes the system-group request to Ansible.
+`allow_gid_change` | No | `false` | Explicitly permits changing an existing declared group's GID after reviewing filesystem and NSS ownership.
+
+The top-level `require_local_nss` field is deprecated and retained only for
+compatibility. It is ignored (both `true` and `false` have the same effect).
+Remote-only users and groups are always rejected because user and group module
+operations have no local-NSS selector. Supplementary groups must likewise be
+local or declared in the same blueprint. Remove this field from new
+inventories.
 
 ## Configuration examples
 
@@ -192,6 +205,11 @@ See the executable examples: [minimal](docs/inventory-minimal.yml),
   `visudo`, and are never overwritten when a same-named unmanaged file exists.
 - Broad sudo command specifications containing `ALL` require the per-user
   `allow_unrestricted_sudo: true` opt-in.
+  `#0` run-as specifications are rejected, and comments cannot hide an
+  unrestricted command.
+- Existing homes must already be directories. SSH authorized-key and sudoers
+  paths reject symlinked parent components; arbitrary path aliasing is not
+  supported.
 - Authorized-key exclusivity is disabled by default; an empty key list therefore
   leaves an existing file unchanged unless exclusivity is enabled.
 - User removal uses `remove: false`; existing homes are not removed by default.
@@ -258,6 +276,9 @@ update validation, normalization, documentation, examples, and tests together.
   configuration.
 - Check-mode behavior follows the capabilities and limitations of the Ansible
   user, group, file, and authorized-key modules.
+- CI currently uses mutable container image tags and third-party action major
+  tags rather than verified digests. Review workflow inputs or pin them in a
+  controlled release process before treating CI as a supply-chain boundary.
 
 ## License
 

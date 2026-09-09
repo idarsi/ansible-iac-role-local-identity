@@ -4,6 +4,7 @@
     database: passwd
     key: "{{ local_identity_user_record.name }}"
     fail_key: false
+    service: "files"
   register: local_identity_user_lookup
   check_mode: false
 
@@ -28,11 +29,32 @@
     - local_identity_user_record.remove_home | bool
     - local_identity_current_passwd_entry is not none
 
+- name: Resolve the declared home without following symlinked parents
+  ansible.builtin.command:
+    argv: ["realpath", "-m", "--", "{{ local_identity_user_record.home }}"]
+  register: local_identity_home_resolved_path
+  changed_when: false
+  check_mode: false
+  when:
+    - local_identity_user_record.remove_home | bool
+    - local_identity_current_passwd_entry is not none
+
 - name: Inspect the explicitly declared home before removal
   ansible.builtin.stat:
     path: "{{ local_identity_user_record.home }}"
     follow: false
   register: local_identity_home_stat
+  when:
+    - local_identity_user_record.remove_home | bool
+    - local_identity_current_passwd_entry is not none
+
+- name: Refuse symlinked parent components before home marker checks
+  ansible.builtin.assert:
+    that:
+      - local_identity_home_resolved_path.stdout == local_identity_user_record.home
+    fail_msg: >-
+      Refusing home removal because a parent path component is a symlink:
+      {{ local_identity_user_record.home }}.
   when:
     - local_identity_user_record.remove_home | bool
     - local_identity_current_passwd_entry is not none

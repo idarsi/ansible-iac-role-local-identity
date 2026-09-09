@@ -33,6 +33,22 @@
   ansible.builtin.include_tasks: validate_sudoers_preflight.yml
   when: local_identity_effective_state == 'present'
 
+- name: Preflight existing identity numeric changes before present mutations
+  ansible.builtin.include_tasks: validate_identity_preflight.yml
+  when: local_identity_effective_state == 'present'
+
+- name: Preflight local NSS identities before destructive mutations
+  ansible.builtin.include_tasks: validate_identity_nss_preflight.yml
+  when: local_identity_effective_state in ['absent', 'all_absent']
+
+- name: Preflight SSH paths before present-state mutations
+  ansible.builtin.include_tasks: validate_ssh_preflight.yml
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_ssh_user
+    label: "{{ local_identity_ssh_user.name }}"
+  when: local_identity_effective_state == 'present'
+
 - name: Run validation state
   ansible.builtin.include_tasks: validate_only.yml
   when: local_identity_effective_state == 'validate'

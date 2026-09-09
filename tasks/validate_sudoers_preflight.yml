@@ -7,6 +7,33 @@
   check_mode: false
   when: local_identity_normalized_users | selectattr('sudo_rules', 'ne', []) | list | length > 0
 
+- name: Inspect sudoers directory without following symlinks
+  ansible.builtin.stat:
+    path: "{{ local_identity_sudoers_dir }}"
+    follow: false
+  register: local_identity_sudoers_dir_stat
+
+- name: Resolve sudoers directory without following symlinked parents
+  ansible.builtin.command:
+    argv: ["realpath", "-m", "--", "{{ local_identity_sudoers_dir }}"]
+  register: local_identity_sudoers_resolved_path
+  changed_when: false
+  check_mode: false
+
+- name: Refuse symlinked parent components in sudoers paths
+  ansible.builtin.assert:
+    that:
+      - local_identity_sudoers_resolved_path.stdout == local_identity_sudoers_dir
+    fail_msg: Refusing sudoers management because a parent path component is a symlink.
+
+- name: Refuse sudoers directory symlink traversal
+  ansible.builtin.assert:
+    that:
+      - not (local_identity_sudoers_dir_stat.stat.islnk | default(false) | bool)
+      - not (local_identity_sudoers_dir_stat.stat.exists | default(false) | bool) or
+        (local_identity_sudoers_dir_stat.stat.isdir | default(false) | bool)
+    fail_msg: Refusing to follow a symlink or non-directory sudoers directory.
+
 - name: Require visudo before converging users with sudo rules
   ansible.builtin.assert:
     that:

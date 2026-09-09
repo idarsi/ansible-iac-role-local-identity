@@ -1,0 +1,76 @@
+---
+- name: Check declared users through normal NSS before removal
+  ansible.builtin.command:
+    argv: ["getent", "passwd", "{{ local_identity_nss_user.name }}"]
+  register: local_identity_nss_users
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_nss_user
+
+- name: Check declared users against the local files NSS database before removal
+  ansible.builtin.command:
+    argv: ["getent", "-s", "files", "passwd", "{{ local_identity_nss_user.name }}"]
+  register: local_identity_files_nss_users
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  loop: "{{ local_identity_normalized_users }}"
+  loop_control:
+    loop_var: local_identity_nss_user
+
+- name: Reject remote-only users before removal
+  ansible.builtin.assert:
+    that:
+      - >-
+        local_identity_nss_users.results[local_identity_nss_index].rc != 0 or
+        local_identity_files_nss_users.results[local_identity_nss_index].rc == 0
+    fail_msg: >-
+      Refusing to manage {{ local_identity_normalized_users[local_identity_nss_index].name }}:
+      it resolves through NSS but not the local files database.
+  loop: "{{ range(0, local_identity_normalized_users | length) | list }}"
+  loop_control:
+    loop_var: local_identity_nss_index
+
+- name: Build the referenced group name set before removal
+  ansible.builtin.set_fact:
+    local_identity_referenced_group_names: >-
+      {{ (local_identity_normalized_groups | map(attribute='name') | list +
+      (local_identity_normalized_users | map(attribute='groups') | flatten | list)) | unique }}
+
+- name: Check referenced groups through normal NSS before removal
+  ansible.builtin.command:
+    argv: ["getent", "group", "{{ local_identity_nss_group_name }}"]
+  register: local_identity_nss_groups
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  loop: "{{ local_identity_referenced_group_names }}"
+  loop_control:
+    loop_var: local_identity_nss_group_name
+
+- name: Check referenced groups against the local files NSS database before removal
+  ansible.builtin.command:
+    argv: ["getent", "-s", "files", "group", "{{ local_identity_nss_group_name }}"]
+  register: local_identity_files_nss_groups
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  loop: "{{ local_identity_referenced_group_names }}"
+  loop_control:
+    loop_var: local_identity_nss_group_name
+
+- name: Reject remote-only groups before removal
+  ansible.builtin.assert:
+    that:
+      - >-
+        local_identity_nss_groups.results[local_identity_nss_group_index].rc != 0 or
+        local_identity_files_nss_groups.results[local_identity_nss_group_index].rc == 0
+    fail_msg: >-
+      Refusing to manage group {{ local_identity_referenced_group_names[local_identity_nss_group_index] }}:
+      it resolves through NSS but not the local files database.
+  loop: "{{ range(0, local_identity_referenced_group_names | length) | list }}"
+  loop_control:
+    loop_var: local_identity_nss_group_index

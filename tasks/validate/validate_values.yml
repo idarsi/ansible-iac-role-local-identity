@@ -12,6 +12,22 @@
   loop_control:
     loop_var: local_identity_value
 
+- name: Validate authorized keys at the role boundary
+  ansible.builtin.assert:
+    that:
+      - >-
+        local_identity_key is match(
+        '^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|'
+        'ecdsa-sha2-nistp521|sk-ssh-ed25519@openssh.com|'
+        'sk-ecdsa-sha2-nistp256@openssh.com) [A-Za-z0-9+/]+={0,2}( .*)?$')
+    fail_msg: >-
+      Authorized keys must be one plain OpenSSH public-key line: a supported
+      key type, base64 key blob, and optional comment; options and certificates
+      are not accepted.
+  loop: "{{ local_identity_values_user.authorized_keys | default([]) }}"
+  loop_control:
+    loop_var: local_identity_key
+
 - name: Validate Linux group names
   ansible.builtin.assert:
     that:
