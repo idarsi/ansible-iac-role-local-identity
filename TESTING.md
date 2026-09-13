@@ -7,9 +7,11 @@ control.
 
 ## Automated Molecule Matrix
 
-Every scenario is configured to run against each image in the CI platform
-matrix; this describes configured CI coverage, not successful local or current
-run evidence. There is no application-version dimension for this role.
+Every scenario runs against each image in the CI platform matrix. The assessed
+CI run is [run 34752496967](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34752496967)
+for commit `641fefc22b2d45e665437ba03e2a437e5f65d2c5`; all 26/26 jobs passed,
+including 25 Molecule matrix jobs, and 26 artifacts were published. There is no
+application-version dimension for this role.
 
 | Platform/image | Ansible or application versions | Molecule scenarios | Main coverage |
 | --- | --- | --- | --- |
@@ -104,14 +106,11 @@ disposable Molecule containers.
 
 ## Completed Verification Evidence
 
-Tester-reported verification records all 25/25 Molecule matrix combinations
-passing: five scenarios—`validation`, `baseline`, `lifecycle`, `guardrails`,
-and `all_absent`—across the five images listed above. The reported branch is
-`feature/rc-readiness`.
-
-No exact commit SHA or CI run artifact is recorded yet. This evidence therefore
-does not claim a traceable CI run or replace the need for release/version
-migration metadata before RC.
+The successful [GitHub Actions run 34752496967](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34752496967)
+assessed commit `641fefc22b2d45e665437ba03e2a437e5f65d2c5`. It records 26/26
+jobs passing: five scenarios—`validation`, `baseline`, `lifecycle`,
+`guardrails`, and `all_absent`—across the five images listed above (25 Molecule
+matrix jobs), plus the repository-level checks. The run published 26 artifacts.
 
 The runs emitted non-blocking warnings about a duplicate collection,
 Ansible/Molecule deprecations, and missing optional Molecule files. None of
@@ -139,9 +138,9 @@ run-specific artifact named `ci-evidence-*`.
 The role supports Ubuntu 22 and Enterprise Linux 9/10 (including the
 documented Red Hat and Rocky normalization). RHEL UBI 9/10,
 Rocky Linux 9/10, and Ubuntu 22.04 are configured in this repository's CI
-matrix. Tester-reported evidence records all 25 matrix combinations passing on
-branch `feature/rc-readiness`, but does not yet include an exact commit SHA or
-CI run artifact.
+matrix. The assessed [CI run 34752496967](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34752496967)
+records all 25 Molecule matrix combinations passing for commit
+`641fefc22b2d45e665437ba03e2a437e5f65d2c5`; the run published 26 artifacts.
 Platform support is defined by `iac_supported_os` in `defaults/main.yml`; all
 supported platforms are represented in the automated CI matrix.
 
@@ -159,5 +158,3 @@ supported platforms are represented in the automated CI matrix.
 - Check-mode behavior beyond the tested present and destructive paths follows
   the capabilities and limitations of the Ansible user, group, file, and
   authorized-key modules.
-- The 25/25 result is tester-reported and not yet traceable to an exact commit
-  SHA or CI run artifact.

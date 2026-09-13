@@ -1,9 +1,9 @@
-> **Maturity State: Beta**<br>
-> **RC Readiness: 96%**
-> Tester-reported verification records all 25/25 Molecule matrix combinations
-> passing on branch `feature/rc-readiness`. Before RC, the project still needs
-> traceable CI/run evidence and release/version migration metadata; this summary
-> does not claim a CI run or RC release.
+> **Maturity State: Release Candidate**<br>
+> **RC Readiness: 100%**
+> Assessed at commit `641fefc22b2d45e665437ba03e2a437e5f65d2c5` with successful
+> [GitHub Actions run 34752496967](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34752496967):
+> 26/26 jobs passed, including 25 Molecule matrix jobs, and 26 artifacts were
+> published.
 
 # ansible-iac-role-local-identity
 
@@ -17,12 +17,12 @@ users; groups declared in the same blueprint are created before users.
 The public input is an `iac_blueprint`. The role validates the complete
 blueprint, normalizes it, and then applies the requested state.
 
-> **Maturity level: Beta**  
-> The public contract has validation and destructive-operation guardrails, and
-> tester-reported Molecule verification records 25/25 matrix combinations
-> passing across RHEL UBI 9/10, Rocky Linux 9/10, and Ubuntu 22.04. Traceable
-> CI/run evidence and release/version migration metadata remain before RC.
-> Review the supported-platform and limitations sections before production use.
+> **Maturity level: Release Candidate**
+> The public contract has validation and destructive-operation guardrails. The
+> assessed ref has traceable CI evidence: [run 34752496967](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34752496967)
+> for commit `641fefc22b2d45e665437ba03e2a437e5f65d2c5` passed 26/26 jobs,
+> including 25 Molecule matrix jobs, and published 26 artifacts. Review the
+> supported-platform and limitations sections before production use.
 
 ## Supported platforms
 
