@@ -1,5 +1,9 @@
-> **Maturity State: Beta**<br>
-> **RC Readiness: 79%**
+> **Maturity State: Release Candidate**<br>
+> **RC Readiness: 100%**
+> Assessed at commit `b948f0e48a96de22bced27296e69aa51083d2763` with successful
+> [GitHub Actions run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795):
+> 26/26 jobs passed, including 25 Molecule matrix jobs, and 26 artifacts were
+> published.
 
 # ansible-iac-role-local-identity
 
@@ -13,28 +17,37 @@ users; groups declared in the same blueprint are created before users.
 The public input is an `iac_blueprint`. The role validates the complete
 blueprint, normalizes it, and then applies the requested state.
 
-> **Maturity level: Beta**  
-> The public contract has validation and destructive-operation guardrails, and
-> automated functional coverage includes RHEL UBI 9/10, Rocky Linux 9/10, and
-> Ubuntu 22.04. Review the
+> **Maturity level: Release Candidate**
+> The public contract has validation and destructive-operation guardrails. The
+> assessed ref has traceable CI evidence: [run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795)
+> for commit `b948f0e48a96de22bced27296e69aa51083d2763` passed 26/26 jobs,
+> including 25 Molecule matrix jobs, and published 26 artifacts. Review the
 > supported-platform and limitations sections before production use.
 
 ## Supported platforms
 
-Operating system | Supported versions | Tested versions
------------------|--------------------|----------------
-Debian           | 11, 12             | —
-Ubuntu           | 22, 24             | 22.04
-Enterprise Linux (`RedHat`, `Rocky`) | 8, 9, 10 | RHEL UBI 9/10, Rocky Linux 9/10
+Operating system | Supported versions | Configured CI matrix | Current local evidence
+-----------------|--------------------|----------------------|----------------------
+Ubuntu           | 22                 | Ubuntu 22.04 | Shared environment: completed
+Enterprise Linux (`RedHat`, `Rocky`) | 9, 10 | RHEL UBI 9/10, Rocky Linux 9/10 | Not locally verified
 
 The role supports Linux hosts only. Platform support is defined by
 `iac_supported_os` in [defaults/main.yml](defaults/main.yml). For the `EL`
 support record, the role normalizes Ansible distributions `RedHat` and `Rocky`
-to `EL`; other distributions are not accepted through this alias. Other
-supported platforms are not automatically tested by this repository. RHEL UBI
+to `EL`; other distributions are not accepted through this alias. The
+supported platforms are represented in the configured CI matrix. RHEL UBI
 images are public UBI images, not subscribed RHEL installations; access to
 `registry.access.redhat.com` is required and no registry credentials are
 supplied by this role or CI.
+
+### Compatibility impact
+
+This release narrows the supported-platform contract to the platforms with
+configured automated coverage: Ubuntu 22 and Enterprise Linux 9/10. Debian
+11/12, Ubuntu 24, and Enterprise Linux 8 are no longer accepted by the role's
+platform preflight. Operators still requiring those platforms must remain on a
+previous compatible role revision or qualify a future support change before
+upgrading.
 
 ## Supported states
 
@@ -268,7 +281,8 @@ update validation, normalization, documentation, examples, and tests together.
 
 ## Known limitations
 
-- Functional Molecule coverage does not yet exercise Debian, Ubuntu 24.04, or EL 8.
+- Debian 11/12, Ubuntu 24, and EL 8 are outside the supported-platform contract
+  and are not covered by the configured CI matrix.
 - UBI and Rocky image tags are mutable and registry availability or rate limits
   may block CI. A restricted UBI registry may require an operator-provided login.
 - The role manages local identities only; it does not install sudo or manage
