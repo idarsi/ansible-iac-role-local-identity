@@ -51,6 +51,38 @@ jobs:
         run: ansible-playbook --syntax-check tests/syntax.yml
       - name: Run production-profile Ansible Lint
         run: ansible-lint --profile production .
+      - name: Write CI evidence report
+        if: "${{ success() }}"
+        env:
+          EVIDENCE_REPOSITORY: "${{ github.repository }}"
+          EVIDENCE_WORKFLOW: "${{ github.workflow }}"
+          EVIDENCE_RUN_ID: "${{ github.run_id }}"
+          EVIDENCE_RUN_ATTEMPT: "${{ github.run_attempt }}"
+          EVIDENCE_SHA: "${{ github.sha }}"
+        run: |
+          mkdir -p evidence
+          report="evidence/ci-evidence-lint-${EVIDENCE_RUN_ID}-${EVIDENCE_RUN_ATTEMPT}-${EVIDENCE_SHA}.md"
+          {
+            printf '%s\n' "# CI evidence report"
+            printf '%s\n' "- Repository: ${EVIDENCE_REPOSITORY}"
+            printf '%s\n' "- Workflow: ${EVIDENCE_WORKFLOW}"
+            printf '%s\n' "- Run ID: ${EVIDENCE_RUN_ID}"
+            printf '%s\n' "- Run attempt: ${EVIDENCE_RUN_ATTEMPT}"
+            printf '%s\n' "- Commit SHA: ${EVIDENCE_SHA}"
+            printf '%s\n' "- Platform: not applicable"
+            printf '%s\n' "- Image: not applicable"
+            printf '%s\n' "- Scenario: not applicable"
+            printf '%s\n' "- Tool/test command: ansible-playbook --syntax-check tests/syntax.yml; ansible-lint --profile production ."
+            printf '%s\n' "- Result: success"
+          } > "$report"
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload CI evidence report
+        if: "${{ success() }}"
+        uses: actions/upload-artifact@v4
+        with:
+          name: "ci-evidence-lint-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}"
+          path: "evidence/ci-evidence-lint-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}.md"
+          if-no-files-found: "error"
 
   molecule:
     name: Molecule ${{ matrix.scenario }} (${{ matrix.platform.name }})
@@ -120,3 +152,38 @@ jobs:
         env:
           MOLECULE_IMAGE: ${{ matrix.platform.image }}
         run: molecule test -s ${{ matrix.scenario }}
+      - name: Write CI evidence report
+        if: "${{ success() }}"
+        env:
+          EVIDENCE_REPOSITORY: "${{ github.repository }}"
+          EVIDENCE_WORKFLOW: "${{ github.workflow }}"
+          EVIDENCE_RUN_ID: "${{ github.run_id }}"
+          EVIDENCE_RUN_ATTEMPT: "${{ github.run_attempt }}"
+          EVIDENCE_SHA: "${{ github.sha }}"
+          EVIDENCE_PLATFORM: "${{ matrix.platform.name }}"
+          EVIDENCE_IMAGE: "${{ matrix.platform.image }}"
+          EVIDENCE_SCENARIO: "${{ matrix.scenario }}"
+        run: |
+          mkdir -p evidence
+          report="evidence/ci-evidence-${EVIDENCE_SCENARIO}-${EVIDENCE_RUN_ID}-${EVIDENCE_RUN_ATTEMPT}-${EVIDENCE_SHA}.md"
+          {
+            printf '%s\n' "# CI evidence report"
+            printf '%s\n' "- Repository: ${EVIDENCE_REPOSITORY}"
+            printf '%s\n' "- Workflow: ${EVIDENCE_WORKFLOW}"
+            printf '%s\n' "- Run ID: ${EVIDENCE_RUN_ID}"
+            printf '%s\n' "- Run attempt: ${EVIDENCE_RUN_ATTEMPT}"
+            printf '%s\n' "- Commit SHA: ${EVIDENCE_SHA}"
+            printf '%s\n' "- Platform: ${EVIDENCE_PLATFORM}"
+            printf '%s\n' "- Image: ${EVIDENCE_IMAGE}"
+            printf '%s\n' "- Scenario: ${EVIDENCE_SCENARIO}"
+            printf '%s\n' "- Tool/test command: MOLECULE_IMAGE=${EVIDENCE_IMAGE} molecule test -s ${EVIDENCE_SCENARIO}"
+            printf '%s\n' "- Result: success"
+          } > "$report"
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload CI evidence report
+        if: "${{ success() }}"
+        uses: actions/upload-artifact@v4
+        with:
+          name: "ci-evidence-${{ matrix.scenario }}-${{ matrix.platform.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}"
+          path: "evidence/ci-evidence-${{ matrix.scenario }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}.md"
+          if-no-files-found: "error"

@@ -27,6 +27,35 @@
           - lifecycle_home_marker.stat.uid == (getent_passwd.lifecycle_user[1] | int)
           - (lifecycle_home_marker_content.content | b64decode) == 'Managed by ansible-iac-role-local-identity; do not remove.\n'
 
+    - name: Assert the initial lifecycle shell before transition
+      ansible.builtin.assert:
+        that:
+          - getent_passwd.lifecycle_user[5] == '/bin/bash'
+
+    - name: Transition the lifecycle user to an updated present state
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: present
+            users:
+              - name: lifecycle_user
+                home: /home/lifecycle_user
+                shell: /usr/sbin/nologin
+                groups: [lifecycle_group]
+
+    - name: Read the lifecycle user after the present-state transition
+      ansible.builtin.getent:
+        database: passwd
+        key: lifecycle_user
+      register: lifecycle_user_after_transition
+
+    - name: Assert the present-state transition updated the shell
+      ansible.builtin.assert:
+        that:
+          - lifecycle_user_after_transition.ansible_facts.getent_passwd.lifecycle_user[5] == '/usr/sbin/nologin'
+
     - name: Remove the lifecycle fixture user and its marked home
       ansible.builtin.include_role:
         name: "{{ playbook_dir }}/../.."

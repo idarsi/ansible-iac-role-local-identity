@@ -17,9 +17,7 @@ local_identity_require_local_nss: true
 
 # Source of truth for the platform check in tasks/main.yml.
 iac_supported_os:
-  - name: Debian
-    versions: ['11', '12']
   - name: Ubuntu
-    versions: ['22', '24']
+    versions: ['22']
   - name: EL
-    versions: ['8', '9', '10']
+    versions: ['9', '10']
