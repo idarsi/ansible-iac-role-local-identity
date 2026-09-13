@@ -1,7 +1,7 @@
 > **Maturity State: Release Candidate**<br>
 > **RC Readiness: 100%**
-> Assessed at commit `641fefc22b2d45e665437ba03e2a437e5f65d2c5` with successful
-> [GitHub Actions run 34752496967](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34752496967):
+> Assessed at commit `b948f0e48a96de22bced27296e69aa51083d2763` with successful
+> [GitHub Actions run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795):
 > 26/26 jobs passed, including 25 Molecule matrix jobs, and 26 artifacts were
 > published.
 
@@ -19,8 +19,8 @@ blueprint, normalizes it, and then applies the requested state.
 
 > **Maturity level: Release Candidate**
 > The public contract has validation and destructive-operation guardrails. The
-> assessed ref has traceable CI evidence: [run 34752496967](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34752496967)
-> for commit `641fefc22b2d45e665437ba03e2a437e5f65d2c5` passed 26/26 jobs,
+> assessed ref has traceable CI evidence: [run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795)
+> for commit `b948f0e48a96de22bced27296e69aa51083d2763` passed 26/26 jobs,
 > including 25 Molecule matrix jobs, and published 26 artifacts. Review the
 > supported-platform and limitations sections before production use.
 
