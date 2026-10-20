@@ -1,7 +1,14 @@
 ---
-- name: Set normalized local_identity state before processing users
+###############################################################################
+#
+# normalize.yml
+#
+# @author Arsi Atomi
+#
+###############################################################################
+
+- name: Normalize local_identity top-level settings
   ansible.builtin.set_fact:
-    local_identity_effective_state: "{{ local_identity_input.state | default(local_identity_state) }}"
     local_identity_sudoers_dir: >-
       {{ local_identity_input.sudoers_dir | default(local_identity_sudoers_dir) }}
     local_identity_sudoers_file_mode: >-

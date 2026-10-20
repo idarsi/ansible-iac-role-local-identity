@@ -1,7 +1,6 @@
 > **Maturity State: Beta**<br>
 > **RC Readiness: 83%**
-> Maturity assessment of ref `3b7d26388d6d0b6e405f9de123e0e84a57d6e4d8`; this is
-> not production approval.
+> Prior assessment score; this change has not been independently rescored.
 
 # ansible-iac-role-local-identity
 
@@ -15,12 +14,7 @@ users; groups declared in the same blueprint are created before users.
 The public input is an `iac_blueprint`. The role validates the complete
 blueprint, normalizes it, and then applies the requested state.
 
-> **Maturity level: Release Candidate**
-> The public contract has validation and destructive-operation guardrails. The
-> assessed ref has traceable CI evidence: [run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795)
-> for commit `b948f0e48a96de22bced27296e69aa51083d2763` passed 26/26 jobs,
-> including 25 Molecule matrix jobs, and published 26 artifacts. Review the
-> supported-platform and limitations sections before production use.
+The maturity summary is an engineering assessment, not production approval.
 
 ## Supported platforms
 
@@ -51,7 +45,7 @@ upgrading.
 
 State | Behavior
 ------|---------
-`validate` | Validate inventory and sudoers content without persistent host changes.
+`validate` | Validate the complete blueprint while skipping operational runtime preflights and persistent host changes; supported-platform facts are still required.
 `present` | Create or update the declared users and access configuration.
 `absent` | Remove the declared users and role-managed sudoers files; homes are preserved unless explicitly requested and authorized.
 `all_absent` | Perform the same declared-user removal as `absent`, with an additional explicit opt-in.
@@ -100,7 +94,7 @@ Validate the same blueprint without applying a mutating state:
 - Ansible Core 2.14 or newer.
 - `ansible.posix` collection 2.2.2 (for `authorized_key`).
 - `containers.podman` collection 1.8.1 is pinned in [requirements.yml](requirements.yml) for the repository's Podman-based test scenarios.
-- `visudo` on the target when any user has `sudo_rules`.
+- `visudo` on the target when `state: present` includes users with `sudo_rules`; it is required for the `present`-state sudoers preflights and is not required for `state: validate`.
 
 Install the declared collections with `ansible-galaxy collection install -r
 requirements.yml`.
@@ -260,10 +254,15 @@ operation to fail.
 
 ## Validation
 
-All inventory validation runs before host mutation. `state: validate` also
-checks rendered sudoers content without writing a persistent sudoers file.
-Validation covers types, names, duplicate users/groups/UIDs/homes, safe paths,
-GID values, sudo-rule ownership, and deletion guardrails.
+All blueprint validation runs before host mutation. Every state, including
+`state: validate`, requires gathered facts identifying a supported platform.
+The `validate` state checks blueprint structure and sudo-rule policy while
+skipping operational runtime preflights, including `visudo`, NSS lookups, and
+filesystem path checks; it makes no persistent host changes. The `present`
+state performs the operational sudoers and runtime preflights before user
+changes. Blueprint validation covers types, names, duplicate
+users/groups/UIDs/homes, safe paths, GID values, sudo-rule ownership, and
+deletion guardrails.
 
 ## Testing
 

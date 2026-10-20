@@ -28,32 +28,39 @@ implementation, not a Red Hat subscription.
 
 ## Scenario coverage
 
-- `validation`: Runs `state: validate` with empty users and groups, a minimal valid
-  user, numeric UID/GID values, and valid unrestricted sudo opt-in. It asserts
+- `validation`: Runs `state: validate` on supported-platform images with empty
+  users and groups, a minimal valid user, numeric UID/GID values, and valid
+  unrestricted sudo opt-in. The role still requires gathered platform facts,
+  but the scenario asserts that operational preflights are skipped. It asserts
   actionable failure messages for invalid numeric values, invalid user and
   top-level groups,
-  multiline and malformed public keys, unsafe sudo syntax, and sudo variants. Prepare and verify
-  prove that validation does not create an account or sudoers file.
+  multiline and malformed public keys, unsafe sudo syntax, and sudo variants.
+  It validates a sudo rule while asserting that operational `visudo` and
+  sudoers-path preflight variables were not set. Prepare and verify prove that
+  validation does not create an account or sudoers file.
 - `baseline`: Runs normal `state: present` convergence and Molecule's
   idempotence check. It verifies user creation, sudoers rendering, home marker
   ownership/content, preservation of an existing home marker state, numeric
   primary-group creation and reuse, declared group creation before supplementary
   membership, and a valid present-state check-mode run.
 - `lifecycle`: Creates a user, transitions it to an updated `present` state,
-  and then exercises `state: absent` with explicit user/group deletion and
-  home-removal authorization. It verifies the shell transition and that the
+  exercises `state: absent` with explicit user/group deletion and home-removal
+  authorization, safely repeats `absent`, then recreates the user. It verifies
+  the present→absent→present transition, repeated absent behavior, and that the
   declared user, explicitly identified group, and marked home are removed.
 - `all_absent`: Exercises `state: all_absent` with all destructive opt-ins and
   a role-managed home marker. It verifies removal of only the declared user,
   declared group, home, and sudoers file while preserving an unmanaged sudoers
-  file and an undeclared home.
+  file and an undeclared home; it also repeats `all_absent` after removal.
 - `guardrails`: Verifies destructive check mode is non-mutating and that
   user deletion, group-only absent/all_absent requests, nonexistent-group
   handling, group deletion without opt-in, shared-group removal, undeclared
   primary-group ownership, omitted or mismatched GIDs, `all_absent`, unmanaged
   home removal, unmanaged or unsafe-metadata sudoers updates, and conflicting
   same-name GIDs fail with expected error messages.
-  Final assertions verify unmanaged resources remain present.
+  A failing `present` sudoers-path operational preflight also verifies that the
+  requested user was not created. Final assertions verify unmanaged resources
+  remain present.
 - Functional scenarios also cover UID/GID drift and collisions, empty
   supplementary-group clearing (including replacement by an explicitly empty
   list), local-files NSS isolation and remote-only NSS rejection, implicit
@@ -157,4 +164,9 @@ supported platforms are represented in the automated CI matrix.
   matrix because this role manages local identities only.
 - Check-mode behavior beyond the tested present and destructive paths follows
   the capabilities and limitations of the Ansible user, group, file, and
-  authorized-key modules.
+  authorized-key modules. Diff/check-mode output and prediction are therefore
+  module-dependent; the baseline present check-mode non-mutation and guardrails
+  destructive check-mode behavior are the covered promises. On an operational
+  preflight failure, the role does not promise transactional rollback; correct
+  the reported error (for example, install/provide `visudo` or fix the rejected
+  path) and rerun the role to converge the requested state.

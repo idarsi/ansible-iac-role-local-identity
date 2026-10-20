@@ -244,6 +244,19 @@
           - local_identity_sudoers_path_guardrail_role.failed | default(false)
           - (local_identity_sudoers_path_guardrail_role.result | default('')) is search('parent path component is a symlink')
 
+    - name: Check the sudoers-preflight fixture user was not created
+      ansible.builtin.getent:
+        database: passwd
+        key: sudoers_symlink_user
+        fail_key: false
+      register: sudoers_preflight_user_lookup
+    - name: Assert failing present preflight prevented identity mutation
+      ansible.builtin.assert:
+        that:
+          - >-
+            (sudoers_preflight_user_lookup.ansible_facts.getent_passwd |
+            default({})).get('sudoers_symlink_user') is none
+
     - name: Reject deletion without explicit opt-in
       block:
         - name: Run deletion with its safety flag disabled

@@ -1,8 +1,28 @@
 ---
 - name: Verify all_absent safety and lifecycle inside the container
   hosts: all
-  gather_facts: false
+  gather_facts: true
   tasks:
+    - name: Repeat all_absent after the declared resources are already absent
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: all_absent
+            allow_all_absent: true
+            allow_user_deletion: true
+            allow_home_removal: true
+            allow_group_deletion: true
+            groups:
+              - name: all_absent_group
+                gid: 1710
+            users:
+              - name: all_absent_user
+                home: /home/all_absent_user
+                create_home: true
+                remove_home: true
+
     - name: Check fixture account is absent from the current passwd database
       ansible.builtin.command: getent passwd all_absent_user
       changed_when: false
