@@ -1,9 +1,7 @@
-> **Maturity State: Release Candidate**<br>
-> **RC Readiness: 100%**
-> Assessed at commit `b948f0e48a96de22bced27296e69aa51083d2763` with successful
-> [GitHub Actions run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795):
-> 26/26 jobs passed, including 25 Molecule matrix jobs, and 26 artifacts were
-> published.
+> **Maturity State: Beta**<br>
+> **RC Readiness: 83%**
+> Maturity assessment of ref `3b7d26388d6d0b6e405f9de123e0e84a57d6e4d8`; this is
+> not production approval.
 
 # ansible-iac-role-local-identity
 
