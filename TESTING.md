@@ -8,8 +8,8 @@ control.
 ## Automated Molecule Matrix
 
 Every scenario runs against each image in the CI platform matrix. The assessed
-CI run is [run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795)
-for commit `b948f0e48a96de22bced27296e69aa51083d2763`; all 26/26 jobs passed,
+CI run is [run 39478980821](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39478980821)
+for commit [`abd5d56`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/abd5d5667c259e01368e421035ee2e2201628f65); all 26/26 jobs passed,
 including 25 Molecule matrix jobs, and 26 artifacts were published. There is no
 application-version dimension for this role.
 
@@ -113,8 +113,8 @@ disposable Molecule containers.
 
 ## Completed Verification Evidence
 
-The successful [GitHub Actions run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795)
-assessed commit `b948f0e48a96de22bced27296e69aa51083d2763`. It records 26/26
+The successful [GitHub Actions run 39478980821](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39478980821)
+assessed commit [`abd5d56`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/abd5d5667c259e01368e421035ee2e2201628f65). It records 26/26
 jobs passing: five scenarios—`validation`, `baseline`, `lifecycle`,
 `guardrails`, and `all_absent`—across the five images listed above (25 Molecule
 matrix jobs), plus the repository-level checks. The run published 26 artifacts.
@@ -145,9 +145,9 @@ run-specific artifact named `ci-evidence-*`.
 The role supports Ubuntu 22 and Enterprise Linux 9/10 (including the
 documented Red Hat and Rocky normalization). RHEL UBI 9/10,
 Rocky Linux 9/10, and Ubuntu 22.04 are configured in this repository's CI
-matrix. The assessed [CI run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795)
+matrix. The assessed [CI run 39478980821](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39478980821)
 records all 25 Molecule matrix combinations passing for commit
-`b948f0e48a96de22bced27296e69aa51083d2763`; the run published 26 artifacts.
+[`abd5d56`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/abd5d5667c259e01368e421035ee2e2201628f65); the run published 26 artifacts.
 Platform support is defined by `iac_supported_os` in `defaults/main.yml`; all
 supported platforms are represented in the automated CI matrix.
 

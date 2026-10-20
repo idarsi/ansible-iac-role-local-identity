@@ -1,6 +1,6 @@
 > **Maturity State: Beta**<br>
-> **RC Readiness: 83%**
-> Prior assessment score; this change has not been independently rescored.
+> **RC Readiness: 99%**<br>
+> **Assessment ref:** commit [`abd5d5667c259e01368e421035ee2e2201628f65`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/abd5d5667c259e01368e421035ee2e2201628f65)
 
 # ansible-iac-role-local-identity
 
@@ -14,7 +14,8 @@ users; groups declared in the same blueprint are created before users.
 The public input is an `iac_blueprint`. The role validates the complete
 blueprint, normalizes it, and then applies the requested state.
 
-The maturity summary is an engineering assessment, not production approval.
+This Beta/99% maturity assessment is engineering guidance only and does not
+constitute production approval.
 
 ## Supported platforms
 
