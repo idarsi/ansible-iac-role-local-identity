@@ -128,9 +128,14 @@ documented platform or version coverage.
 
 The GitHub Actions workflow runs on every push and pull request. It executes
 syntax/lint once, then runs all five Molecule scenarios for each of the five
-images (25 matrix jobs). Baseline and guardrails include the check-mode coverage
-described above; Molecule also performs its normal idempotence phase where
-applicable.
+images (25 matrix jobs). The `required-checks` job, displayed as **Required
+checks**, waits for both `lint-and-syntax` and the complete `molecule` matrix,
+even if either dependency fails, and succeeds only when both report success.
+This provides one stable aggregate check (`Required checks`) that can be
+selected for branch-protection required-check configuration; this documentation
+does not imply that branch protection is enabled. Baseline and guardrails
+include the check-mode coverage described above; Molecule also performs its
+normal idempotence phase where applicable.
 
 There is currently no separate scheduled or release matrix. The push and pull
 request matrix covers the five images listed above, which are the complete

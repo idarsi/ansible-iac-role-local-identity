@@ -187,3 +187,16 @@ jobs:
           name: "ci-evidence-${{ matrix.scenario }}-${{ matrix.platform.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}"
           path: "evidence/ci-evidence-${{ matrix.scenario }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}.md"
           if-no-files-found: "error"
+
+  required-checks:
+    name: Required checks
+    needs: [lint-and-syntax, molecule]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify lint and complete Molecule matrix succeeded
+        run: |
+          if [[ "${{ needs.lint-and-syntax.result }}" != "success" || "${{ needs.molecule.result }}" != "success" ]]; then
+            echo "Required checks failed: lint-and-syntax=${{ needs.lint-and-syntax.result }}, molecule=${{ needs.molecule.result }}" >&2
+            exit 1
+          fi
