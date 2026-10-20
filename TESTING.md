@@ -75,7 +75,7 @@ multiple application versions, or multi-host behavior.
 
 - Linux host with Podman and permission to run disposable containers.
 - Shared Idarsi Ansible testing environment at
-  `/home/arsi/.local/share/venvs/idarsi-ansible-testing`.
+  `${HOME}/.local/share/venvs/idarsi-ansible-testing`.
 - Network access to install the pinned collections and pull the test image.
 - `ansible.posix==2.2.2` and `containers.podman==1.8.1` from `requirements.yml`.
 - `visudo` in the test image for sudoers verification. The test-only Molecule
@@ -96,7 +96,7 @@ export CONTAINER_HOST="unix:///run/user/$(id -u)/podman/podman.sock"
 Run the complete local check set with the shared environment:
 
 ```sh
-export PATH="/home/arsi/.local/share/venvs/idarsi-ansible-testing/bin:$PATH"
+export PATH="${HOME}/.local/share/venvs/idarsi-ansible-testing/bin:$PATH"
 ansible-galaxy collection install -r requirements.yml
 ansible-playbook --syntax-check tests/syntax.yml
 ansible-lint --profile production .
