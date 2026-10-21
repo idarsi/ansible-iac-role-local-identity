@@ -4,7 +4,7 @@
 
 ANSIBLE-IAC-ROLE-LOCAL-IDENTITY
 ===============================
-**COPYRIGHT** ^(ida|arsi)$ collective
+**COPYRIGHT** 2026 ^(ida|arsi)$ collective
 **LICENSE** MIT Licence [LICENSE](LICENSE)
 **AUTHORS**
 - Arsi Atomi <arsi@atomi.sh>
