@@ -8,10 +8,10 @@ control.
 ## Automated Molecule Matrix
 
 Every scenario runs against each image in the CI platform matrix. The assessed
-CI run is [run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795)
-for commit `b948f0e48a96de22bced27296e69aa51083d2763`; all 26/26 jobs passed,
-including 25 Molecule matrix jobs, and 26 artifacts were published. There is no
-application-version dimension for this role.
+CI run is [run 39567526243](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39567526243)
+for commit [`3327d8e`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/3327d8e644b7a45820e27f9839a3dcfc8eb923c1); all 27/27 jobs passed:
+25 Molecule matrix jobs, lint/syntax, and aggregate Required checks. The run
+published 26 artifacts. There is no application-version dimension for this role.
 
 | Platform/image | Ansible or application versions | Molecule scenarios | Main coverage |
 | --- | --- | --- | --- |
@@ -19,7 +19,7 @@ application-version dimension for this role.
 | RHEL UBI 10 / `registry.access.redhat.com/ubi10/ubi-init:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured primary Enterprise Linux coverage |
 | Rocky Linux 9 / `rockylinux:9` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured Enterprise Linux compatibility coverage |
 | Rocky Linux 10 / `quay.io/rockylinux/rockylinux:10` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured Enterprise Linux compatibility coverage |
-| Ubuntu 22.04 / `geerlingguy/docker-ubuntu2204-ansible:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured retained compatibility coverage; locally completed on this image |
+| Ubuntu 22.04 / `geerlingguy/docker-ubuntu2204-ansible:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured retained CI compatibility coverage |
 
 Images are pulled and run directly by Podman. Tags are not pinned by digest.
 UBI images are public but access to Red Hat's registry can be restricted; CI
@@ -28,32 +28,39 @@ implementation, not a Red Hat subscription.
 
 ## Scenario coverage
 
-- `validation`: Runs `state: validate` with empty users and groups, a minimal valid
-  user, numeric UID/GID values, and valid unrestricted sudo opt-in. It asserts
+- `validation`: Runs `state: validate` on supported-platform images with empty
+  users and groups, a minimal valid user, numeric UID/GID values, and valid
+  unrestricted sudo opt-in. The role still requires gathered platform facts,
+  but the scenario asserts that operational preflights are skipped. It asserts
   actionable failure messages for invalid numeric values, invalid user and
   top-level groups,
-  multiline and malformed public keys, unsafe sudo syntax, and sudo variants. Prepare and verify
-  prove that validation does not create an account or sudoers file.
+  multiline and malformed public keys, unsafe sudo syntax, and sudo variants.
+  It validates a sudo rule while asserting that operational `visudo` and
+  sudoers-path preflight variables were not set. Prepare and verify prove that
+  validation does not create an account or sudoers file.
 - `baseline`: Runs normal `state: present` convergence and Molecule's
   idempotence check. It verifies user creation, sudoers rendering, home marker
   ownership/content, preservation of an existing home marker state, numeric
   primary-group creation and reuse, declared group creation before supplementary
   membership, and a valid present-state check-mode run.
 - `lifecycle`: Creates a user, transitions it to an updated `present` state,
-  and then exercises `state: absent` with explicit user/group deletion and
-  home-removal authorization. It verifies the shell transition and that the
+  exercises `state: absent` with explicit user/group deletion and home-removal
+  authorization, safely repeats `absent`, then recreates the user. It verifies
+  the present→absent→present transition, repeated absent behavior, and that the
   declared user, explicitly identified group, and marked home are removed.
 - `all_absent`: Exercises `state: all_absent` with all destructive opt-ins and
   a role-managed home marker. It verifies removal of only the declared user,
   declared group, home, and sudoers file while preserving an unmanaged sudoers
-  file and an undeclared home.
+  file and an undeclared home; it also repeats `all_absent` after removal.
 - `guardrails`: Verifies destructive check mode is non-mutating and that
   user deletion, group-only absent/all_absent requests, nonexistent-group
   handling, group deletion without opt-in, shared-group removal, undeclared
   primary-group ownership, omitted or mismatched GIDs, `all_absent`, unmanaged
   home removal, unmanaged or unsafe-metadata sudoers updates, and conflicting
   same-name GIDs fail with expected error messages.
-  Final assertions verify unmanaged resources remain present.
+  A failing `present` sudoers-path operational preflight also verifies that the
+  requested user was not created. Final assertions verify unmanaged resources
+  remain present.
 - Functional scenarios also cover UID/GID drift and collisions, empty
   supplementary-group clearing (including replacement by an explicitly empty
   list), local-files NSS isolation and remote-only NSS rejection, implicit
@@ -68,7 +75,7 @@ multiple application versions, or multi-host behavior.
 
 - Linux host with Podman and permission to run disposable containers.
 - Shared Idarsi Ansible testing environment at
-  `/home/arsi/.local/share/venvs/idarsi-ansible-testing`.
+  `${HOME}/.local/share/venvs/idarsi-ansible-testing`.
 - Network access to install the pinned collections and pull the test image.
 - `ansible.posix==2.2.2` and `containers.podman==1.8.1` from `requirements.yml`.
 - `visudo` in the test image for sudoers verification. The test-only Molecule
@@ -89,7 +96,7 @@ export CONTAINER_HOST="unix:///run/user/$(id -u)/podman/podman.sock"
 Run the complete local check set with the shared environment:
 
 ```sh
-export PATH="/home/arsi/.local/share/venvs/idarsi-ansible-testing/bin:$PATH"
+export PATH="${HOME}/.local/share/venvs/idarsi-ansible-testing/bin:$PATH"
 ansible-galaxy collection install -r requirements.yml
 ansible-playbook --syntax-check tests/syntax.yml
 ansible-lint --profile production .
@@ -106,11 +113,12 @@ disposable Molecule containers.
 
 ## Completed Verification Evidence
 
-The successful [GitHub Actions run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795)
-assessed commit `b948f0e48a96de22bced27296e69aa51083d2763`. It records 26/26
+The successful [GitHub Actions run 39567526243](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39567526243)
+assessed code/test commit [`3327d8e`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/3327d8e644b7a45820e27f9839a3dcfc8eb923c1). It records 27/27
 jobs passing: five scenarios—`validation`, `baseline`, `lifecycle`,
 `guardrails`, and `all_absent`—across the five images listed above (25 Molecule
-matrix jobs), plus the repository-level checks. The run published 26 artifacts.
+matrix jobs), plus lint/syntax and aggregate Required checks. The run published
+26 artifacts.
 
 The runs emitted non-blocking warnings about a duplicate collection,
 Ansible/Molecule deprecations, and missing optional Molecule files. None of
@@ -121,9 +129,16 @@ documented platform or version coverage.
 
 The GitHub Actions workflow runs on every push and pull request. It executes
 syntax/lint once, then runs all five Molecule scenarios for each of the five
-images (25 matrix jobs). Baseline and guardrails include the check-mode coverage
-described above; Molecule also performs its normal idempotence phase where
-applicable.
+images (25 matrix jobs). The `required-checks` job, displayed as **Required
+checks**, waits for both `lint-and-syntax` and the complete `molecule` matrix,
+even if either dependency fails, and succeeds only when both report success.
+This provides one stable aggregate check (`Required checks`) that can be
+required by the active repository ruleset `Main protection rule` on `main`.
+The ruleset requires the branch to be up to date before merging and requires the
+`Required checks` status check. This is repository-level policy; reverify it if
+the repository settings change. Baseline and guardrails include the check-mode
+coverage described above; Molecule also performs its normal idempotence phase
+where applicable.
 
 There is currently no separate scheduled or release matrix. The push and pull
 request matrix covers the five images listed above, which are the complete
@@ -138,9 +153,10 @@ run-specific artifact named `ci-evidence-*`.
 The role supports Ubuntu 22 and Enterprise Linux 9/10 (including the
 documented Red Hat and Rocky normalization). RHEL UBI 9/10,
 Rocky Linux 9/10, and Ubuntu 22.04 are configured in this repository's CI
-matrix. The assessed [CI run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795)
+matrix. The assessed [CI run 39567526243](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39567526243)
 records all 25 Molecule matrix combinations passing for commit
-`b948f0e48a96de22bced27296e69aa51083d2763`; the run published 26 artifacts.
+[`3327d8e`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/3327d8e644b7a45820e27f9839a3dcfc8eb923c1); all 27/27 jobs passed (25 matrix,
+lint/syntax, and aggregate Required checks), and the run published 26 artifacts.
 Platform support is defined by `iac_supported_os` in `defaults/main.yml`; all
 supported platforms are represented in the automated CI matrix.
 
@@ -157,4 +173,9 @@ supported platforms are represented in the automated CI matrix.
   matrix because this role manages local identities only.
 - Check-mode behavior beyond the tested present and destructive paths follows
   the capabilities and limitations of the Ansible user, group, file, and
-  authorized-key modules.
+  authorized-key modules. Diff/check-mode output and prediction are therefore
+  module-dependent; the baseline present check-mode non-mutation and guardrails
+  destructive check-mode behavior are the covered promises. On an operational
+  preflight failure, the role does not promise transactional rollback; correct
+  the reported error (for example, install/provide `visudo` or fix the rejected
+  path) and rerun the role to converge the requested state.

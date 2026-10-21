@@ -105,3 +105,59 @@
         that:
           - lifecycle_group_after_removal.rc != 0
           - lifecycle_group_after_removal.rc != 127
+
+    - name: Repeat absent after lifecycle resources are already absent
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: absent
+            allow_user_deletion: true
+            allow_group_deletion: true
+            allow_home_removal: true
+            users:
+              - name: lifecycle_user
+                home: /home/lifecycle_user
+                create_home: true
+                remove_home: true
+            groups:
+              - name: lifecycle_group
+                gid: 1702
+
+    - name: Confirm repeated absent leaves lifecycle fixtures absent
+      ansible.builtin.getent:
+        database: passwd
+        key: lifecycle_user
+        fail_key: false
+      register: lifecycle_user_after_repeated_absent
+
+    - name: Assert repeated absent is safe and idempotent
+      ansible.builtin.assert:
+        that:
+          - >-
+            (lifecycle_user_after_repeated_absent.ansible_facts.getent_passwd |
+            default({})).get('lifecycle_user') is none
+
+    - name: Recreate the lifecycle user after its absent transition
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."
+      vars:
+        iac_blueprint:
+          local_identity:
+            state: present
+            users:
+              - name: lifecycle_user
+                home: /home/lifecycle_user
+                shell: /bin/bash
+
+    - name: Confirm present succeeds after absent
+      ansible.builtin.getent:
+        database: passwd
+        key: lifecycle_user
+      register: lifecycle_user_after_recreation
+
+    - name: Assert present→absent→present lifecycle transition
+      ansible.builtin.assert:
+        that:
+          - lifecycle_user_after_recreation.ansible_facts.getent_passwd.lifecycle_user[5] == '/bin/bash'

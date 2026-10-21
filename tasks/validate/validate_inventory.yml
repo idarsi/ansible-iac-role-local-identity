@@ -1,4 +1,12 @@
 ---
+###############################################################################
+#
+# validate_inventory.yml
+#
+# @author Arsi Atomi
+#
+###############################################################################
+
 - name: Validate local_identity root
   ansible.builtin.assert:
     that:
@@ -15,7 +23,7 @@
 - name: Validate state and users container
   ansible.builtin.assert:
     that:
-      - (local_identity_input.state | default(local_identity_state)) in ['validate', 'present', 'absent', 'all_absent']
+      - iac_state in ['validate', 'present', 'absent', 'all_absent']
       - local_identity_input.users is defined
       - local_identity_input.users is sequence
       - local_identity_input.users is not string
@@ -152,7 +160,7 @@
 - name: Validate all_absent authorization
   ansible.builtin.assert:
     that: >-
-      (local_identity_input.state | default(local_identity_state)) !=
+      iac_state !=
       'all_absent' or (local_identity_input.allow_all_absent |
       default(local_identity_allow_all_absent) | bool)
     fail_msg: "all_absent requires allow_all_absent: true."
@@ -160,7 +168,7 @@
 - name: Validate user deletion authorization
   ansible.builtin.assert:
     that: >-
-      (local_identity_input.state | default(local_identity_state)) in
+      iac_state in
       ['present', 'validate'] or (local_identity_input.users | length == 0) or
       (local_identity_input.allow_user_deletion |
       default(local_identity_allow_user_deletion) | bool)

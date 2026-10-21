@@ -1,299 +1,126 @@
 > **Maturity State: Release Candidate**<br>
-> **RC Readiness: 100%**
-> Assessed at commit `b948f0e48a96de22bced27296e69aa51083d2763` with successful
-> [GitHub Actions run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795):
-> 26/26 jobs passed, including 25 Molecule matrix jobs, and 26 artifacts were
-> published.
+> **RC Readiness: 100%**<br>
+> **Assessment ref:** commit [`3327d8e644b7a45820e27f9839a3dcfc8eb923c1`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/3327d8e644b7a45820e27f9839a3dcfc8eb923c1)
 
-# ansible-iac-role-local-identity
+ANSIBLE-IAC-ROLE-LOCAL-IDENTITY
+===============================
+**COPYRIGHT** 2026 ^(ida|arsi)$ collective
+**LICENSE** MIT Licence [LICENSE](LICENSE)
+**AUTHORS**
+- Arsi Atomi <arsi@atomi.sh>
 
-## Overview
+Overview
+--------
 
-Declaratively manages local Linux users and selected access controls. The role
-manages users, home directories, SSH authorized keys, and per-user sudoers
-files; it does not install sudo. Declared supplementary groups are assigned to
-users; groups declared in the same blueprint are created before users.
+This Ansible role provides a declarative way to manage local Linux users and
+their selected access controls through an `iac_blueprint`.
 
-The public input is an `iac_blueprint`. The role validates the complete
-blueprint, normalizes it, and then applies the requested state.
+This maturity assessment is engineering guidance only; it is not production
+approval.
 
-> **Maturity level: Release Candidate**
-> The public contract has validation and destructive-operation guardrails. The
-> assessed ref has traceable CI evidence: [run 34753207795](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/34753207795)
-> for commit `b948f0e48a96de22bced27296e69aa51083d2763` passed 26/26 jobs,
-> including 25 Molecule matrix jobs, and published 26 artifacts. Review the
-> supported-platform and limitations sections before production use.
+The role manages:
 
-## Supported platforms
+- Local users, home directories, and supplementary group membership.
+- Declared local groups.
+- SSH authorized keys and per-user sudoers files.
 
-Operating system | Supported versions | Configured CI matrix | Current local evidence
------------------|--------------------|----------------------|----------------------
-Ubuntu           | 22                 | Ubuntu 22.04 | Shared environment: completed
-Enterprise Linux (`RedHat`, `Rocky`) | 9, 10 | RHEL UBI 9/10, Rocky Linux 9/10 | Not locally verified
+The role does not manage:
 
-The role supports Linux hosts only. Platform support is defined by
-`iac_supported_os` in [defaults/main.yml](defaults/main.yml). For the `EL`
-support record, the role normalizes Ansible distributions `RedHat` and `Rocky`
-to `EL`; other distributions are not accepted through this alias. The
-supported platforms are represented in the configured CI matrix. RHEL UBI
-images are public UBI images, not subscribed RHEL installations; access to
-`registry.access.redhat.com` is required and no registry credentials are
-supplied by this role or CI.
+- Sudo installation, authentication services, password values, or remote identities.
+- SSH daemon configuration, firewall policy, or host-wide system administration.
 
-### Compatibility impact
+Supported platforms
+-------------------
 
-This release narrows the supported-platform contract to the platforms with
-configured automated coverage: Ubuntu 22 and Enterprise Linux 9/10. Debian
-11/12, Ubuntu 24, and Enterprise Linux 8 are no longer accepted by the role's
-platform preflight. Operators still requiring those platforms must remain on a
-previous compatible role revision or qualify a future support change before
-upgrading.
+| Operating system | Supported versions | Automated test coverage |
+|------------------|--------------------|-------------------------|
+| Ubuntu | 22 | Ubuntu 22.04 |
+| Enterprise Linux (`RedHat`, `Rocky`, normalized to `EL`) | 9, 10 | RHEL UBI 9/10; Rocky Linux 9/10 |
 
-## Supported states
+The configured CI matrix runs five scenarios on each of the five images above.
+CI run [39567526243](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39567526243)
+for the assessed code/test reference passed all 27 jobs: 25 Molecule matrix
+jobs, lint/syntax, and the aggregate Required checks. See [TESTING.md](TESTING.md)
+for details. UBI images require access to the public Red Hat registry; the role
+and CI do not provide registry credentials.
 
-State | Behavior
-------|---------
-`validate` | Validate inventory and sudoers content without persistent host changes.
-`present` | Create or update the declared users and access configuration.
-`absent` | Remove the declared users and role-managed sudoers files; homes are preserved unless explicitly requested and authorized.
-`all_absent` | Perform the same declared-user removal as `absent`, with an additional explicit opt-in.
+Supported states
+----------------
 
-`install` and `uninstall` are not supported states. `all_absent` applies only
-to users listed in the blueprint; it does not discover or remove other system
-users.
+| State | Behaviour |
+|-------|-----------|
+| `validate` | Validates the blueprint and sudo-rule policy without operational runtime preflights or persistent host changes; supported-platform facts are required. |
+| `present` | Creates or updates declared users, groups, keys, and sudoers configuration. |
+| `absent` | Removes declared users and role-managed sudoers files; groups and homes are removed only under their explicit safeguards. |
+| `all_absent` | Declared-resource removal with an additional mandatory opt-in; it discovers and removes no undeclared users. |
 
-## Quick start
+`install` and `uninstall` are not supported states.
 
-Minimal playbook:
+Quick start
+-----------
 
-```yaml
----
-- hosts: local_identity_hosts
-  become: true
-  roles:
-    - role: local_identity
-  vars:
-    iac_blueprint:
-      local_identity:
-        state: present
-        users:
-          - name: app
-            shell: /usr/sbin/nologin
-```
+See the [minimal Blueprint example](docs/inventory-minimal.yml) and the
+[Blueprint reference](docs/blueprint.md).
 
-Validate the same blueprint without applying a mutating state:
+Requirements
+------------
 
-```yaml
----
-- hosts: local_identity_hosts
-  become: true
-  roles:
-    - role: local_identity
-  vars:
-    iac_blueprint:
-      local_identity:
-        state: validate
-        users:
-          - name: app
-```
-
-## Requirements
+Control node
 
 - Ansible Core 2.14 or newer.
-- `ansible.posix` collection 2.2.2 (for `authorized_key`).
-- `containers.podman` collection 1.8.1 is pinned in [requirements.yml](requirements.yml) for the repository's Podman-based test scenarios.
-- `visudo` on the target when any user has `sudo_rules`.
+- `ansible.posix` 2.2.2 (authorized-key management).
+- `containers.podman` 1.8.1 is pinned for repository test scenarios, not role runtime.
 
-Install the declared collections with `ansible-galaxy collection install -r
-requirements.yml`.
+Target host
 
-## Usage
+- `visudo` is required only for `state: present` when users declare sudo rules,
+  for operational sudoers preflight and validation. It is not required by
+  `state: validate`.
 
-Keep the playbook thin; configuration belongs under `iac_blueprint.local_identity`:
+Blueprint structure
+-------------------
 
-```yaml
----
-- hosts: local_identity_hosts
-  become: true
-  roles:
-    - role: local_identity
-```
-
-Run it with `ansible-playbook -i inventory.yml site.yml`.
-
-## Blueprint structure
+Configuration is read from `iac_blueprint.local_identity`:
 
 ```yaml
 iac_blueprint:
   local_identity:
     state: present
-    groups:
-      - name: appusers
-        gid: 1700
-        system: true
     users:
-      - name: deploy
-        groups: [appusers, adm]
-        shell: /bin/bash
-        home: /home/deploy
-        comment: Deployment account
-        uid: 1500
-        gid: 1500
-        password_lock: true
-        authorized_keys:
-          - ssh-ed25519 AAAA... replace-with-a-real-public-key
-        sudo_rules:
-          - 'deploy ALL=(root) /usr/bin/systemctl restart example.service'
+      - name: app
+        shell: /usr/sbin/nologin
 ```
 
-`users` is required and must be a list. User names cannot be `root`, must be
-Linux-safe names of up to 32 characters, and must be unique. Values in a user's
-`groups`, `authorized_keys`, and `sudo_rules` must be single-line strings.
-The optional top-level `groups` list declares local groups and is converged
-before users, so users can use groups declared in the same blueprint.
+Top-level blueprint variables
+-----------------------------
 
-### Blueprint fields
+| Variable | Required (yes/no) | Default | Short description |
+|----------|-------------------|---------|-------------------|
+| `state` | no | `present` | One of `validate`, `present`, `absent`, `all_absent`. |
+| `users` | yes | — | User records to manage or remove. |
+| `groups` | no | `[]` | Local group records, created before users. |
+| `allow_user_deletion` | no | `false` | Authorizes deletion in non-empty removal requests. |
+| `allow_group_deletion` | no | `false` | Required to remove an existing declared group. |
+| `allow_home_removal` | no | `false` | Required when a user requests home removal. |
+| `allow_all_absent` | no | `false` | Required for every `all_absent` request. |
+| `home_removal_marker` | no | `.ansible-iac-role-local-identity-managed` | Marker identifying a role-managed home. |
+| `authorized_keys_exclusive` | no | `false` | Default key-file exclusivity for users. |
+| `sudoers_dir` | no | `/etc/sudoers.d` | Directory for per-user sudoers files. |
+| `sudoers_mode` | no | `0440` | Sudoers file mode (`0400` or `0440`). |
+| `require_local_nss` | no | `true` | Deprecated, ignored compatibility field; local-files NSS enforcement is unconditional. |
 
-Top-level field | Required | Default | Description
-----------------|----------|---------|-------------
-`state` | No | `present` | One of `validate`, `present`, `absent`, or `all_absent`.
-`users` | Yes | — | Users to manage or remove.
-`groups` | No | `[]` | Local groups to manage or remove.
-`allow_user_deletion` | No | `false` | Required for `absent` and `all_absent` when `users` is non-empty.
-`allow_group_deletion` | No | `false` | Required only when an existing declared group is removable in `absent` or `all_absent`; deletion also requires an explicit matching `gid` and safe membership.
-`allow_home_removal` | No | `false` | Required when any user sets `remove_home: true`.
-`allow_all_absent` | No | `false` | Required for `all_absent`.
-`home_removal_marker` | No | `.ansible-iac-role-local-identity-managed` | Safe filename used to prove role-managed home ownership.
-`authorized_keys_exclusive` | No | `false` | Default for users; when true, declared keys replace existing keys, including clearing them with an empty list.
-`sudoers_dir` | No | `/etc/sudoers.d` | Safe absolute directory for per-user sudoers files.
-`sudoers_mode` | No | `0440` | Sudoers file mode; only `0400` and `0440` are accepted.
-`require_local_nss` | No | `true` | Deprecated compatibility setting; ignored. Local-files NSS enforcement is unconditional.
+See [the full Blueprint field reference and validation contract](docs/blueprint.md)
+for all top-level, user, and group fields.
 
-Each user supports these fields:
+Configuration examples
+----------------------
 
-Field | Required | Default | Description
-------|----------|---------|-------------
-`name` | Yes | — | Local username.
-`groups` | No | `[]` | Supplementary groups; `append` controls replacement when supplied. An explicitly supplied empty list clears supplementary membership by default. Groups must resolve through local `/etc/group` or be declared in the same blueprint; declared groups are created before users.
-`shell` | No | `/bin/bash` | Login shell.
-`home` | No | Module/system default | Explicit home path; required for `remove_home`.
-`comment` | No | Module default | User comment/gecos value.
-`uid` | No | Module/system allocation | Positive numeric UID.
-`gid` | No | — | Numeric primary GID; an existing matching group is reused, otherwise a private group named after the user is created.
-`create_home` | No | `true` | Whether to create the home directory.
-`remove_home` | No | `false` | Request removal of the explicitly declared home during a destructive state.
-`append` | No | `true` for non-empty declared groups, otherwise `false` | Whether supplementary groups are appended or replaced.
-`password_lock` | No | Module default | Pass-through user password-lock setting.
-`allow_uid_gid_change` | No | `false` | Explicitly permits changing an existing user's requested UID or primary GID after reviewing ownership and NSS impact.
-`authorized_keys` | No | `[]` | SSH public keys to manage.
-`authorized_keys_exclusive` | No | Top-level value (`false`) | Whether declared keys exclusively control the file.
-`allow_unrestricted_sudo` | No | `false` | Explicitly permits unrestricted sudo command specifications containing `ALL`.
-`sudo_rules` | No | `[]` | Single-line sudoers entries beginning with this user name.
+- [Minimal inventory](docs/inventory-minimal.yml)
+- [Security inventory](docs/inventory-security.yml)
+- [Removal inventory](docs/inventory-removal.yml)
 
-Each declared local group supports these fields:
-
-Field | Required | Default | Description
-------|----------|---------|-------------
-`name` | Yes | — | Local group name; unique and Linux-safe.
-`gid` | No | Module/system allocation | Positive numeric group ID.
-`system` | No | `false` | Passes the system-group request to Ansible.
-`allow_gid_change` | No | `false` | Explicitly permits changing an existing declared group's GID after reviewing filesystem and NSS ownership.
-
-The top-level `require_local_nss` field is deprecated and retained only for
-compatibility. It is ignored (both `true` and `false` have the same effect).
-Remote-only users and groups are always rejected because user and group module
-operations have no local-NSS selector. Supplementary groups must likewise be
-local or declared in the same blueprint. Remove this field from new
-inventories.
-
-## Configuration examples
-
-See the executable examples: [minimal](docs/inventory-minimal.yml),
-[security](docs/inventory-security.yml), and
-[removal](docs/inventory-removal.yml).
-
-## Security defaults
-
-- Sudoers files are root-owned, use mode `0440` by default, are validated with
-  `visudo`, and are never overwritten when a same-named unmanaged file exists.
-- Broad sudo command specifications containing `ALL` require the per-user
-  `allow_unrestricted_sudo: true` opt-in.
-  `#0` run-as specifications are rejected, and comments cannot hide an
-  unrestricted command.
-- Existing homes must already be directories. SSH authorized-key and sudoers
-  paths reject symlinked parent components; arbitrary path aliasing is not
-  supported.
-- Authorized-key exclusivity is disabled by default; an empty key list therefore
-  leaves an existing file unchanged unless exclusivity is enabled.
-- User removal uses `remove: false`; existing homes are not removed by default.
-- Homes created by this role receive a marker with mode `0600` only when an
-  explicit `home` is declared. Existing homes are never marked automatically.
-
-## Secrets
-
-Do not commit passwords or private keys. Use Ansible Vault or an approved secret
-manager for any surrounding secret data. This role accepts public SSH keys only;
-it does not provide a password field in the blueprint.
-
-## Destructive states and guardrails
-
-> **Warning:** `absent` and `all_absent` delete declared local users and their
-> role-managed sudoers files. Confirm the target before enabling deletion.
-
-`absent` requires `allow_user_deletion: true` when users are declared. A
-group-only `absent` request is allowed to reach the group guardrails. An
-existing declared group requires `allow_group_deletion: true`; a declared group
-that does not exist is safely ignored without that flag. `all_absent` always
-requires `allow_all_absent: true`, including group-only and empty requests, and
-also requires `allow_user_deletion: true` when users are declared. Home removal additionally requires
-`allow_home_removal: true`, an explicit `home`, and `remove_home: true`.
-Declared group removal is never implicit. A group is removed only when its
-declared `gid` is present and matches the current group, and every current
-member is one of the users declared for removal in the same operation, and no
-undeclared user uses that GID as its primary group. Groups
-with other members, mismatched or omitted GIDs, or pre-existing groups that do
-not satisfy these checks are preserved and the operation fails before user
-mutation. Groups created with an automatically allocated GID are therefore
-present-only unless their GID is later declared explicitly.
-Before removal, the home must match the user's passwd entry and be a
-non-symlink, user-owned directory containing the exact marker created by this
-role. Unmanaged or same-named foreign sudoers files are preserved and cause the
-operation to fail.
-
-## Validation
-
-All inventory validation runs before host mutation. `state: validate` also
-checks rendered sudoers content without writing a persistent sudoers file.
-Validation covers types, names, duplicate users/groups/UIDs/homes, safe paths,
-GID values, sudo-rule ownership, and deletion guardrails.
-
-## Testing
-
-Testing details and prerequisites are in [TESTING.md](TESTING.md). The repository
-has validation, baseline/idempotence, lifecycle, `all_absent`, and guardrail
-scenarios. CI runs syntax checking, production-profile Ansible Lint, and these
-Podman-based scenarios on RHEL UBI 9/10, Rocky Linux 9/10, and Ubuntu 22.04.
-
-## Development
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). Changes to the public blueprint must
-update validation, normalization, documentation, examples, and tests together.
-
-## Known limitations
-
-- Debian 11/12, Ubuntu 24, and EL 8 are outside the supported-platform contract
-  and are not covered by the configured CI matrix.
-- UBI and Rocky image tags are mutable and registry availability or rate limits
-  may block CI. A restricted UBI registry may require an operator-provided login.
-- The role manages local identities only; it does not install sudo or manage
-  authentication services, password values, firewall policy, or SSH daemon
-  configuration.
-- Check-mode behavior follows the capabilities and limitations of the Ansible
-  user, group, file, and authorized-key modules.
-- CI currently uses mutable container image tags and third-party action major
-  tags rather than verified digests. Review workflow inputs or pin them in a
-  controlled release process before treating CI as a supply-chain boundary.
-
-## License
-
-MIT License. See [LICENSE](LICENSE). The role metadata declares the MIT license.
+For destructive-state safeguards and recovery guidance, see
+[Security and removal](docs/security-and-removal.md). Test prerequisites and
+commands are documented in [TESTING.md](TESTING.md). Development and
+contribution guidance is in [CONTRIBUTING.md](CONTRIBUTING.md). The project is
+licensed under the [MIT Licence](LICENSE).

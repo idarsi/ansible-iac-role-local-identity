@@ -17,8 +17,7 @@
     - name: Require the validation fixture to be absent before converge
       ansible.builtin.assert:
         that:
-          - local_identity_validation_fixture_user.rc != 0
-          - local_identity_validation_fixture_user.rc != 127
+          - local_identity_validation_fixture_user.rc == 2
           - not (local_identity_validation_fixture_sudoers.stat.exists | default(false) | bool)
         fail_msg: Validation fixture unexpectedly exists before validate state.
 
