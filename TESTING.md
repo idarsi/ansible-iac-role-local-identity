@@ -8,10 +8,10 @@ control.
 ## Automated Molecule Matrix
 
 Every scenario runs against each image in the CI platform matrix. The assessed
-CI run is [run 39478980821](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39478980821)
-for commit [`abd5d56`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/abd5d5667c259e01368e421035ee2e2201628f65); all 26/26 jobs passed,
-including 25 Molecule matrix jobs, and 26 artifacts were published. There is no
-application-version dimension for this role.
+CI run is [run 39567526243](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39567526243)
+for commit [`3327d8e`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/3327d8e644b7a45820e27f9839a3dcfc8eb923c1); all 27/27 jobs passed:
+25 Molecule matrix jobs, lint/syntax, and aggregate Required checks. The run
+published 26 artifacts. There is no application-version dimension for this role.
 
 | Platform/image | Ansible or application versions | Molecule scenarios | Main coverage |
 | --- | --- | --- | --- |
@@ -19,7 +19,7 @@ application-version dimension for this role.
 | RHEL UBI 10 / `registry.access.redhat.com/ubi10/ubi-init:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured primary Enterprise Linux coverage |
 | Rocky Linux 9 / `rockylinux:9` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured Enterprise Linux compatibility coverage |
 | Rocky Linux 10 / `quay.io/rockylinux/rockylinux:10` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured Enterprise Linux compatibility coverage |
-| Ubuntu 22.04 / `geerlingguy/docker-ubuntu2204-ansible:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured retained compatibility coverage; locally completed on this image |
+| Ubuntu 22.04 / `geerlingguy/docker-ubuntu2204-ansible:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured retained CI compatibility coverage |
 
 Images are pulled and run directly by Podman. Tags are not pinned by digest.
 UBI images are public but access to Red Hat's registry can be restricted; CI
@@ -113,11 +113,12 @@ disposable Molecule containers.
 
 ## Completed Verification Evidence
 
-The successful [GitHub Actions run 39478980821](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39478980821)
-assessed commit [`abd5d56`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/abd5d5667c259e01368e421035ee2e2201628f65). It records 26/26
+The successful [GitHub Actions run 39567526243](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39567526243)
+assessed code/test commit [`3327d8e`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/3327d8e644b7a45820e27f9839a3dcfc8eb923c1). It records 27/27
 jobs passing: five scenarios—`validation`, `baseline`, `lifecycle`,
 `guardrails`, and `all_absent`—across the five images listed above (25 Molecule
-matrix jobs), plus the repository-level checks. The run published 26 artifacts.
+matrix jobs), plus lint/syntax and aggregate Required checks. The run published
+26 artifacts.
 
 The runs emitted non-blocking warnings about a duplicate collection,
 Ansible/Molecule deprecations, and missing optional Molecule files. None of
@@ -132,10 +133,12 @@ images (25 matrix jobs). The `required-checks` job, displayed as **Required
 checks**, waits for both `lint-and-syntax` and the complete `molecule` matrix,
 even if either dependency fails, and succeeds only when both report success.
 This provides one stable aggregate check (`Required checks`) that can be
-selected for branch-protection required-check configuration; this documentation
-does not imply that branch protection is enabled. Baseline and guardrails
-include the check-mode coverage described above; Molecule also performs its
-normal idempotence phase where applicable.
+required by the active repository ruleset `Main protection rule` on `main`.
+The ruleset requires the branch to be up to date before merging and requires the
+`Required checks` status check. This is repository-level policy; reverify it if
+the repository settings change. Baseline and guardrails include the check-mode
+coverage described above; Molecule also performs its normal idempotence phase
+where applicable.
 
 There is currently no separate scheduled or release matrix. The push and pull
 request matrix covers the five images listed above, which are the complete
@@ -150,9 +153,10 @@ run-specific artifact named `ci-evidence-*`.
 The role supports Ubuntu 22 and Enterprise Linux 9/10 (including the
 documented Red Hat and Rocky normalization). RHEL UBI 9/10,
 Rocky Linux 9/10, and Ubuntu 22.04 are configured in this repository's CI
-matrix. The assessed [CI run 39478980821](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39478980821)
+matrix. The assessed [CI run 39567526243](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39567526243)
 records all 25 Molecule matrix combinations passing for commit
-[`abd5d56`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/abd5d5667c259e01368e421035ee2e2201628f65); the run published 26 artifacts.
+[`3327d8e`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/3327d8e644b7a45820e27f9839a3dcfc8eb923c1); all 27/27 jobs passed (25 matrix,
+lint/syntax, and aggregate Required checks), and the run published 26 artifacts.
 Platform support is defined by `iac_supported_os` in `defaults/main.yml`; all
 supported platforms are represented in the automated CI matrix.
 
