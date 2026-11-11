@@ -77,7 +77,7 @@ multiple application versions, or multi-host behavior.
 - Shared Idarsi Ansible testing environment at
   `${HOME}/.local/share/venvs/idarsi-ansible-testing`.
 - Network access to install the pinned collections and pull the test image.
-- `ansible.posix==2.2.2` and `containers.podman==1.8.1` from `requirements.yml`.
+- `ansible.posix==2.2.2` and `containers.podman==1.20.2` from `requirements.yml`.
 - `visudo` in the test image for sudoers verification. The test-only Molecule
   create step installs Python 3 and sudo before Ansible connects; production
   role behavior is unchanged.
