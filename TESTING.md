@@ -19,7 +19,7 @@ published 26 artifacts. There is no application-version dimension for this role.
 | RHEL UBI 10 / `registry.access.redhat.com/ubi10/ubi-init:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured primary Enterprise Linux coverage |
 | Rocky Linux 9 / `rockylinux:9` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured Enterprise Linux compatibility coverage |
 | Rocky Linux 10 / `quay.io/rockylinux/rockylinux:10` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured Enterprise Linux compatibility coverage |
-| Ubuntu 22.04 / `geerlingguy/docker-ubuntu2204-ansible:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured retained CI compatibility coverage |
+| Ubuntu 22.04 / `docker.io/geerlingguy/docker-ubuntu2204-ansible:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured retained CI compatibility coverage |
 
 Images are pulled and run directly by Podman. Tags are not pinned by digest.
 UBI images are public but access to Red Hat's registry can be restricted; CI

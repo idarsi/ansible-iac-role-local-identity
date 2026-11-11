@@ -1,6 +1,6 @@
 > **Maturity State: Beta**<br>
-> **RC Readiness: 95%**<br>
-> **Assessed ref:** commit `e79e364c80dada2155e5f6593b2f454baddac55e`.
+> **RC Readiness: 98%**<br>
+> **Assessed ref:** branch `update/podman-collection-pin`, HEAD `46b6bd6f8332931d33fef8f7eaddbc9e4be336e3` plus seven tracked working-tree changes (not a committed ref).
 
 ANSIBLE-IAC-ROLE-LOCAL-IDENTITY
 ===============================
