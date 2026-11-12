@@ -1,6 +1,6 @@
 > **Maturity State: Beta**<br>
 > **RC Readiness: 97%**<br>
-> **Assessed ref:** commit `ffb8be42607ebd91eeb8223bb45feac566c5589a` plus tracked worktree changes in `tasks/user_absent.yml`, `molecule/validation/prepare.yml`, and `molecule/validation/verify.yml`.<br>
+> **Assessed ref:** commit `a594462cbc29bbb875d24b5cff414ee6f481926d`.<br>
 > **Evidence caveat:** targeted ansible-min `all_absent`, `lifecycle`, and `validation` checks passed after these fixes; other scenarios passed in TUI run #198 except the earlier ansible-min failures. The full platform/scenario matrix has not been rerun at this assessed ref, so current-ref CI is not confirmed green.
 
 ANSIBLE-IAC-ROLE-LOCAL-IDENTITY
