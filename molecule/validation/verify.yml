@@ -52,4 +52,12 @@
           - not local_identity_validation_after.user_exists
           - local_identity_validation_after.sudoers == false
           - local_identity_validation_before == local_identity_validation_after
-        fail_msg: "Read-only validation assertion failed: {{ {'actual_decoded_snapshot': (local_identity_validation_before_snapshot.content | default('', true) | b64decode), 'expected_snapshot': 'user_exists=false\nsudoers_exists=false\n', 'before_user_exists': local_identity_validation_before.user_exists, 'before_sudoers_exists': local_identity_validation_before.sudoers, 'after_user_exists': local_identity_validation_after.user_exists, 'after_sudoers_exists': local_identity_validation_after.sudoers} | to_json }}"
+        fail_msg: >-
+          Read-only validation assertion failed: {{
+          {'actual_decoded_snapshot':
+          (local_identity_validation_before_snapshot.content | default('', true) | b64decode),
+          'expected_snapshot': 'user_exists=false\nsudoers_exists=false\n',
+          'before_user_exists': local_identity_validation_before.user_exists,
+          'before_sudoers_exists': local_identity_validation_before.sudoers,
+          'after_user_exists': local_identity_validation_after.user_exists,
+          'after_sudoers_exists': local_identity_validation_after.sudoers} | to_json }}
