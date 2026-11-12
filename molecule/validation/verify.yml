@@ -49,15 +49,10 @@
             {{ (local_identity_validation_user_after.ansible_facts.getent_passwd
                 | default({}, true)).get('validation_absent_fixture') }}
           sudoers: "{{ local_identity_validation_sudoers_after.stat.exists }}"
-    - name: Set the expected validation snapshot from the observed before-state
-      ansible.builtin.set_fact:
-        local_identity_validation_expected_snapshot: |
-          user_exists={{ (local_identity_validation_before.user is not none) | ternary('true', 'false') }}
-          sudoers_exists={{ local_identity_validation_before.sudoers | ternary('true', 'false') }}
     - name: Assert validation did not mutate the container
       ansible.builtin.assert:
         that:
-          - (local_identity_validation_before_snapshot.content | b64decode) == local_identity_validation_expected_snapshot
+          - (local_identity_validation_before_snapshot.content | b64decode) == "user_exists=false\nsudoers_exists=false\n"
           - local_identity_validation_before.user is none
           - local_identity_validation_before.sudoers == false
           - local_identity_validation_after.user is none

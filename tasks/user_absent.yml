@@ -1,29 +1,26 @@
 ---
 - name: Read the current passwd entry before removing the user
-  ansible.builtin.getent:
-    database: passwd
-    key: "{{ local_identity_user_record.name }}"
-    fail_key: false
-    service: "files"
+  ansible.builtin.command:
+    argv: ["getent", "-s", "files", "passwd", "{{ local_identity_user_record.name }}"]
   register: local_identity_user_lookup
+  changed_when: false
+  failed_when: local_identity_user_lookup.rc not in [0, 2]
   check_mode: false
 
 - name: Keep the current passwd entry for safe home validation
   ansible.builtin.set_fact:
-    local_identity_current_passwd_entry: >-
-      {{ (local_identity_user_lookup.ansible_facts.getent_passwd | default({}, true)).get(local_identity_user_record.name)
-      | default(none, true) }}
+    local_identity_current_passwd_entry: "{{ local_identity_user_lookup.stdout.split(':') if local_identity_user_lookup.rc == 0 else none }}"
 
 - name: Refuse to remove a home different from the current passwd home
   ansible.builtin.assert:
     that:
-      # getent passwd values are password, uid, gid, gecos, home, shell.
+      # The raw getent passwd line is name, password, uid, gid, gecos, home, shell.
       - >-
           local_identity_current_passwd_entry is none or
           (local_identity_current_passwd_entry is sequence and
           local_identity_current_passwd_entry is not string and
-          local_identity_current_passwd_entry | length > 4 and
-          local_identity_current_passwd_entry[4] == local_identity_user_record.home)
+          local_identity_current_passwd_entry | length == 7 and
+          local_identity_current_passwd_entry[5] == local_identity_user_record.home)
     fail_msg: "Refusing home removal for {{ local_identity_user_record.name }}: declared home does not match passwd."
   when:
     - local_identity_user_record.remove_home | bool
@@ -82,11 +79,11 @@
     that:
       - local_identity_home_stat.stat.isdir | default(false)
       - not (local_identity_home_stat.stat.islnk | default(false) | bool)
-      - local_identity_home_stat.stat.uid | default(-1) == (local_identity_current_passwd_entry[1] | int)
+      - local_identity_home_stat.stat.uid | default(-1) == (local_identity_current_passwd_entry[2] | int)
       - local_identity_home_marker_stat.stat.exists | default(false)
       - local_identity_home_marker_stat.stat.isreg | default(false)
       - not (local_identity_home_marker_stat.stat.islnk | default(false) | bool)
-      - local_identity_home_marker_stat.stat.uid | default(-1) == (local_identity_current_passwd_entry[1] | int)
+      - local_identity_home_marker_stat.stat.uid | default(-1) == (local_identity_current_passwd_entry[2] | int)
       - (local_identity_home_marker_content.content | default('') | b64decode) == local_identity_home_marker_text + '\n'
     fail_msg: >-
       Refusing to remove {{ local_identity_user_record.home }} for
