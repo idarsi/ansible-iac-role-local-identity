@@ -9,22 +9,22 @@
 
 - name: Keep the current passwd entry for safe home validation
   ansible.builtin.set_fact:
-    local_identity_current_passwd_entry: "{{ local_identity_user_lookup.stdout.split(':') if local_identity_user_lookup.rc == 0 else none }}"
+    local_identity_current_passwd_entry: "{{ local_identity_user_lookup.stdout.split(':') if local_identity_user_lookup.rc == 0 else [] }}"
 
 - name: Refuse to remove a home different from the current passwd home
   ansible.builtin.assert:
     that:
       # The raw getent passwd line is name, password, uid, gid, gecos, home, shell.
       - >-
-          local_identity_current_passwd_entry is none or
+          local_identity_current_passwd_entry | default([], true) | length == 0 or
           (local_identity_current_passwd_entry is sequence and
           local_identity_current_passwd_entry is not string and
           local_identity_current_passwd_entry | length == 7 and
           local_identity_current_passwd_entry[5] == local_identity_user_record.home)
-    fail_msg: "Refusing home removal for {{ local_identity_user_record.name }}: declared home does not match passwd."
+    fail_msg: "Refusing home removal for {{ local_identity_user_record.name }}: passwd entry does not match the declared home."
   when:
     - local_identity_user_record.remove_home | bool
-    - local_identity_current_passwd_entry is not none
+    - local_identity_current_passwd_entry | default([], true) | length > 0
 
 - name: Resolve the declared home without following symlinked parents
   ansible.builtin.command:
@@ -34,7 +34,7 @@
   check_mode: false
   when:
     - local_identity_user_record.remove_home | bool
-    - local_identity_current_passwd_entry is not none
+    - local_identity_current_passwd_entry | default([], true) | length > 0
 
 - name: Inspect the explicitly declared home before removal
   ansible.builtin.stat:
@@ -43,7 +43,7 @@
   register: local_identity_home_stat
   when:
     - local_identity_user_record.remove_home | bool
-    - local_identity_current_passwd_entry is not none
+    - local_identity_current_passwd_entry | default([], true) | length > 0
 
 - name: Refuse symlinked parent components before home marker checks
   ansible.builtin.assert:
@@ -54,7 +54,7 @@
       {{ local_identity_user_record.home }}.
   when:
     - local_identity_user_record.remove_home | bool
-    - local_identity_current_passwd_entry is not none
+    - local_identity_current_passwd_entry | default([], true) | length > 0
 
 - name: Inspect the role-managed home marker before removal
   ansible.builtin.stat:
@@ -63,7 +63,7 @@
   register: local_identity_home_marker_stat
   when:
     - local_identity_user_record.remove_home | bool
-    - local_identity_current_passwd_entry is not none
+    - local_identity_current_passwd_entry | default([], true) | length > 0
 
 - name: Read the role-managed home marker before removal
   ansible.builtin.slurp:
@@ -71,7 +71,7 @@
   register: local_identity_home_marker_content
   when:
     - local_identity_user_record.remove_home | bool
-    - local_identity_current_passwd_entry is not none
+    - local_identity_current_passwd_entry | default([], true) | length > 0
     - local_identity_home_marker_stat.stat.exists | default(false)
 
 - name: Refuse to remove an unmanaged home
@@ -96,7 +96,7 @@
     local_identity_home_marker_text: "Managed by ansible-iac-role-local-identity; do not remove."
   when:
     - local_identity_user_record.remove_home | bool
-    - local_identity_current_passwd_entry is not none
+    - local_identity_current_passwd_entry | default([], true) | length > 0
 
 - name: Refuse a symlink or non-directory home removal target
   ansible.builtin.assert:
@@ -108,7 +108,7 @@
     fail_msg: "Refusing to remove non-directory or symlinked home {{ local_identity_user_record.home }}."
   when:
     - local_identity_user_record.remove_home | bool
-    - local_identity_current_passwd_entry is not none
+    - local_identity_current_passwd_entry | default([], true) | length > 0
 
 - name: Remove local user's role-managed sudoers file
   ansible.builtin.include_tasks: sudoers_guard.yml
@@ -128,4 +128,4 @@
     state: absent
   when:
     - local_identity_user_record.remove_home | bool
-    - local_identity_current_passwd_entry is not none
+    - local_identity_current_passwd_entry | default([], true) | length > 0

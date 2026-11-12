@@ -4,9 +4,9 @@
   gather_facts: false
   tasks:
     - name: Check the validation fixture account is absent
-      ansible.builtin.command: getent passwd validation_absent_fixture
+      ansible.builtin.command: getent -s files passwd validation_absent_fixture
       changed_when: false
-      failed_when: false
+      failed_when: local_identity_validation_fixture_user.rc not in [0, 2]
       register: local_identity_validation_fixture_user
 
     - name: Check the validation fixture sudoers file is absent
