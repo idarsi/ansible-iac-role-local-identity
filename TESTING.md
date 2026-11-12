@@ -19,7 +19,7 @@ published 26 artifacts. There is no application-version dimension for this role.
 | RHEL UBI 10 / `registry.access.redhat.com/ubi10/ubi-init:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured primary Enterprise Linux coverage |
 | Rocky Linux 9 / `rockylinux:9` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured Enterprise Linux compatibility coverage |
 | Rocky Linux 10 / `quay.io/rockylinux/rockylinux:10` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured Enterprise Linux compatibility coverage |
-| Ubuntu 22.04 / `geerlingguy/docker-ubuntu2204-ansible:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured retained CI compatibility coverage |
+| Ubuntu 22.04 / `docker.io/geerlingguy/docker-ubuntu2204-ansible:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured retained CI compatibility coverage |
 
 Images are pulled and run directly by Podman. Tags are not pinned by digest.
 UBI images are public but access to Red Hat's registry can be restricted; CI
@@ -77,7 +77,7 @@ multiple application versions, or multi-host behavior.
 - Shared Idarsi Ansible testing environment at
   `${HOME}/.local/share/venvs/idarsi-ansible-testing`.
 - Network access to install the pinned collections and pull the test image.
-- `ansible.posix==2.2.2` and `containers.podman==1.8.1` from `requirements.yml`.
+- `ansible.posix==2.2.2` and `containers.podman==1.20.2` from `requirements.yml`.
 - `visudo` in the test image for sudoers verification. The test-only Molecule
   create step installs Python 3 and sudo before Ansible connects; production
   role behavior is unchanged.

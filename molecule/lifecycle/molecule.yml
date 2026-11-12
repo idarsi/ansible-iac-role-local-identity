@@ -7,7 +7,7 @@ driver:
   name: podman
 platforms:
   - name: lifecycle-instance
-    image: "${MOLECULE_IMAGE:-geerlingguy/docker-ubuntu2204-ansible:latest}"
+    image: "${MOLECULE_IMAGE:-docker.io/geerlingguy/docker-ubuntu2204-ansible:latest}"
     pre_build_image: true
 provisioner:
   name: ansible

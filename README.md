@@ -1,6 +1,7 @@
-> **Maturity State: Release Candidate**<br>
-> **RC Readiness: 100%**<br>
-> **Assessment ref:** commit [`3327d8e644b7a45820e27f9839a3dcfc8eb923c1`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/3327d8e644b7a45820e27f9839a3dcfc8eb923c1)
+> **Maturity State: Beta**<br>
+> **RC Readiness: 97%**<br>
+> **Assessed ref:** commit `a594462cbc29bbb875d24b5cff414ee6f481926d`.<br>
+> **Evidence caveat:** targeted ansible-min `all_absent`, `lifecycle`, and `validation` checks passed after these fixes; other scenarios passed in TUI run #198 except the earlier ansible-min failures. The full platform/scenario matrix has not been rerun at this assessed ref, so current-ref CI is not confirmed green.
 
 ANSIBLE-IAC-ROLE-LOCAL-IDENTITY
 ===============================
@@ -39,10 +40,12 @@ Supported platforms
 
 The configured CI matrix runs five scenarios on each of the five images above.
 CI run [39567526243](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39567526243)
-for the assessed code/test reference passed all 27 jobs: 25 Molecule matrix
-jobs, lint/syntax, and the aggregate Required checks. See [TESTING.md](TESTING.md)
-for details. UBI images require access to the public Red Hat registry; the role
-and CI do not provide registry credentials.
+tested commit [`3327d8e644b7a45820e27f9839a3dcfc8eb923c1`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/3327d8e644b7a45820e27f9839a3dcfc8eb923c1)
+and passed all 27 jobs: 25 Molecule matrix jobs, lint/syntax, and the aggregate
+Required checks. It does not verify the current assessed working-tree changes,
+including the Podman collection pin. See [TESTING.md](TESTING.md) for details.
+UBI images require access to the public Red Hat registry; the role and CI do not
+provide registry credentials.
 
 Supported states
 ----------------
@@ -69,7 +72,7 @@ Control node
 
 - Ansible Core 2.14 or newer.
 - `ansible.posix` 2.2.2 (authorized-key management).
-- `containers.podman` 1.8.1 is pinned for repository test scenarios, not role runtime.
+- `containers.podman` 1.20.2 is pinned for repository test scenarios, not role runtime.
 
 Target host
 
