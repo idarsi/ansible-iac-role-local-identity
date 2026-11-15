@@ -1,7 +1,7 @@
 > **Maturity State: Beta**<br>
 > **RC Readiness: 97%**<br>
-> **Assessed ref:** commit `a594462cbc29bbb875d24b5cff414ee6f481926d`.<br>
-> **Evidence caveat:** targeted ansible-min `all_absent`, `lifecycle`, and `validation` checks passed after these fixes; other scenarios passed in TUI run #198 except the earlier ansible-min failures. The full platform/scenario matrix has not been rerun at this assessed ref, so current-ref CI is not confirmed green.
+> **Assessed ref:** commit `61a09d8667a8232e022371741297446ca2f73dc4` (with the current uncommitted scenario-directory rename reviewed).<br>
+> **Evidence caveat:** the role's latest recorded full CI evidence is run [39567526243](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39567526243), which passed all 27 jobs at commit `3327d8e644b7a45820e27f9839a3dcfc8eb923c1`. Targeted `ansible-min` runs also passed for `podman-all_absent`, `podman-lifecycle`, and `podman-validation`, but the full platform/scenario matrix has not been rerun for the reviewed current changes. CI at the assessed ref is therefore unconfirmed.
 
 ANSIBLE-IAC-ROLE-LOCAL-IDENTITY
 ===============================

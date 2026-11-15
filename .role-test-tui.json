@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "scenarios": {
+    "podman-validation": {
+      "title": "Blueprint validation",
+      "description": "Checks accepted and rejected local identity blueprint inputs."
+    },
+    "podman-baseline": {
+      "title": "Baseline convergence",
+      "description": "Verifies standard present-state convergence and idempotence."
+    },
+    "podman-lifecycle": {
+      "title": "User lifecycle",
+      "description": "Exercises safe present, absent, and recreation transitions."
+    },
+    "podman-guardrails": {
+      "title": "Removal guardrails",
+      "description": "Checks destructive-operation safeguards and unmanaged-resource preservation."
+    },
+    "podman-all_absent": {
+      "title": "Declared-resource removal",
+      "description": "Verifies authorized all_absent removal of declared resources only."
+    }
+  }
+}
