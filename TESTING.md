@@ -15,11 +15,11 @@ published 26 artifacts. There is no application-version dimension for this role.
 
 | Platform/image | Ansible or application versions | Molecule scenarios | Main coverage |
 | --- | --- | --- | --- |
-| RHEL UBI 9 / `registry.access.redhat.com/ubi9/ubi-init:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured primary Enterprise Linux coverage |
-| RHEL UBI 10 / `registry.access.redhat.com/ubi10/ubi-init:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured primary Enterprise Linux coverage |
-| Rocky Linux 9 / `rockylinux:9` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured Enterprise Linux compatibility coverage |
-| Rocky Linux 10 / `quay.io/rockylinux/rockylinux:10` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured Enterprise Linux compatibility coverage |
-| Ubuntu 22.04 / `docker.io/geerlingguy/docker-ubuntu2204-ansible:latest` | `ansible-core==2.21.3`; application version: not applicable | `validation`, `baseline`, `lifecycle`, `guardrails`, `all_absent` | Configured retained CI compatibility coverage |
+| RHEL UBI 9 / `registry.access.redhat.com/ubi9/ubi-init:latest` | `ansible-core==2.21.3`; application version: not applicable | `podman-validation`, `podman-baseline`, `podman-lifecycle`, `podman-guardrails`, `podman-all_absent` | Configured primary Enterprise Linux coverage |
+| RHEL UBI 10 / `registry.access.redhat.com/ubi10/ubi-init:latest` | `ansible-core==2.21.3`; application version: not applicable | `podman-validation`, `podman-baseline`, `podman-lifecycle`, `podman-guardrails`, `podman-all_absent` | Configured primary Enterprise Linux coverage |
+| Rocky Linux 9 / `rockylinux:9` | `ansible-core==2.21.3`; application version: not applicable | `podman-validation`, `podman-baseline`, `podman-lifecycle`, `podman-guardrails`, `podman-all_absent` | Configured Enterprise Linux compatibility coverage |
+| Rocky Linux 10 / `quay.io/rockylinux/rockylinux:10` | `ansible-core==2.21.3`; application version: not applicable | `podman-validation`, `podman-baseline`, `podman-lifecycle`, `podman-guardrails`, `podman-all_absent` | Configured Enterprise Linux compatibility coverage |
+| Ubuntu 22.04 / `docker.io/geerlingguy/docker-ubuntu2204-ansible:latest` | `ansible-core==2.21.3`; application version: not applicable | `podman-validation`, `podman-baseline`, `podman-lifecycle`, `podman-guardrails`, `podman-all_absent` | Configured retained CI compatibility coverage |
 
 Images are pulled and run directly by Podman. Tags are not pinned by digest.
 UBI images are public but access to Red Hat's registry can be restricted; CI
@@ -28,7 +28,7 @@ implementation, not a Red Hat subscription.
 
 ## Scenario coverage
 
-- `validation`: Runs `state: validate` on supported-platform images with empty
+- `podman-validation`: Runs `state: validate` on supported-platform images with empty
   users and groups, a minimal valid user, numeric UID/GID values, and valid
   unrestricted sudo opt-in. The role still requires gathered platform facts,
   but the scenario asserts that operational preflights are skipped. It asserts
@@ -38,21 +38,21 @@ implementation, not a Red Hat subscription.
   It validates a sudo rule while asserting that operational `visudo` and
   sudoers-path preflight variables were not set. Prepare and verify prove that
   validation does not create an account or sudoers file.
-- `baseline`: Runs normal `state: present` convergence and Molecule's
+- `podman-baseline`: Runs normal `state: present` convergence and Molecule's
   idempotence check. It verifies user creation, sudoers rendering, home marker
   ownership/content, preservation of an existing home marker state, numeric
   primary-group creation and reuse, declared group creation before supplementary
   membership, and a valid present-state check-mode run.
-- `lifecycle`: Creates a user, transitions it to an updated `present` state,
+- `podman-lifecycle`: Creates a user, transitions it to an updated `present` state,
   exercises `state: absent` with explicit user/group deletion and home-removal
   authorization, safely repeats `absent`, then recreates the user. It verifies
   the present→absent→present transition, repeated absent behavior, and that the
   declared user, explicitly identified group, and marked home are removed.
-- `all_absent`: Exercises `state: all_absent` with all destructive opt-ins and
+- `podman-all_absent`: Exercises `state: all_absent` with all destructive opt-ins and
   a role-managed home marker. It verifies removal of only the declared user,
   declared group, home, and sudoers file while preserving an unmanaged sudoers
   file and an undeclared home; it also repeats `all_absent` after removal.
-- `guardrails`: Verifies destructive check mode is non-mutating and that
+- `podman-guardrails`: Verifies destructive check mode is non-mutating and that
   user deletion, group-only absent/all_absent requests, nonexistent-group
   handling, group deletion without opt-in, shared-group removal, undeclared
   primary-group ownership, omitted or mismatched GIDs, `all_absent`, unmanaged
@@ -100,23 +100,23 @@ export PATH="${HOME}/.local/share/venvs/idarsi-ansible-testing/bin:$PATH"
 ansible-galaxy collection install -r requirements.yml
 ansible-playbook --syntax-check tests/syntax.yml
 ansible-lint --profile production .
-molecule test -s validation
-molecule test -s baseline
-molecule test -s lifecycle
-molecule test -s all_absent
-molecule test -s guardrails
+molecule test -s podman-validation
+molecule test -s podman-baseline
+molecule test -s podman-lifecycle
+molecule test -s podman-all_absent
+molecule test -s podman-guardrails
 ```
 
 Run an individual scenario with `molecule test -s <scenario>`, for example
-`molecule test -s validation`. Destructive scenarios must run only in their
+`molecule test -s podman-validation`. Destructive scenarios must run only in their
 disposable Molecule containers.
 
 ## Completed Verification Evidence
 
 The successful [GitHub Actions run 39567526243](https://github.com/idarsi/ansible-iac-role-local-identity/actions/runs/39567526243)
 assessed code/test commit [`3327d8e`](https://github.com/idarsi/ansible-iac-role-local-identity/commit/3327d8e644b7a45820e27f9839a3dcfc8eb923c1). It records 27/27
-jobs passing: five scenarios—`validation`, `baseline`, `lifecycle`,
-`guardrails`, and `all_absent`—across the five images listed above (25 Molecule
+jobs passing: five scenarios—`podman-validation`, `podman-baseline`, `podman-lifecycle`,
+`podman-guardrails`, and `podman-all_absent`—across the five images listed above (25 Molecule
 matrix jobs), plus lint/syntax and aggregate Required checks. The run published
 26 artifacts.
 
